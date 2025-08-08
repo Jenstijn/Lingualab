@@ -1,15 +1,17 @@
 
-const CACHE_NAME = 'lingualab-cache-v10';
+const CACHE_NAME = 'lingualab-cache-v11';
 const ASSETS = [
+  const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './sw.js',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
-  'camera.html',
-'train.html',
-'srs_inject.js',
+  './icons/icon-192.png',   // of './icon-192.png'
+  './icons/icon-512.png',   // ← hier moest een komma!
+  './camera.html',
+  './train.html',
+  './srs_inject.js'
+];
 ];
 
 self.addEventListener('install', (event) => {
