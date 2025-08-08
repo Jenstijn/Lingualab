@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>LinguaLab — Stap 3.3 (Unicode compat fix)</title>
+  <meta name="theme-color" content="#0b1021">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    :root { --bg:#0c0e10; --panel:rgba(255,255,255,0.08); --panel-strong:rgba(255,255,255,0.12);
+      --text:#e8ecf1; --muted:#a8b0ba; --hairline:1px solid rgba(255,255,255,0.14);
+      --backdrop:blur(18px) saturate(130%); --radius:18px; --radius-sm:12px; }
+    @media (prefers-color-scheme: light) {
+      :root { --bg:#f6f7fb; --panel:rgba(255,255,255,0.65); --panel-strong:rgba(255,255,255,0.8);
+        --text:#0b1520; --muted:#536070; --hairline:1px solid rgba(0,0,0,0.08); }
+    }
+    html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    header { position:sticky; top:0; z-index:10; backdrop-filter:var(--backdrop);
+      background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05)); border-bottom:var(--hairline);
+      padding-top: env(safe-area-inset-top); }
+    .wrap { max-width:980px; margin:0 auto; padding:16px; }
+    .grid { display:grid; grid-template-columns:1.05fr .95fr; gap:16px; margin-top:16px; }
+    @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+    .panel { background:var(--panel); border:var(--hairline); border-radius:18px; backdrop-filter:var(--backdrop); padding:14px; }
+    textarea, select, button { width:100%; font:inherit; font-size:16px; }
+    textarea { background:var(--panel-strong); border:var(--hairline); border-radius:12px; min-height:140px; padding:12px 14px; color:var(--text); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .btn { border:var(--hairline); background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));
+      border-radius:14px; padding:12px 14px; cursor:pointer; }
+    .small { font-size:12px; color:var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; white-space:pre-wrap; }
+    .tags { line-height:2.1; font-size:17px; white-space: normal; word-wrap: break-word; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.22); background:var(--panel-strong); margin:2px 2px; }
+    .pill.subj { background:rgba(96,165,250,.18); border-color:rgba(96,165,250,.55); }
+    .pill.verb { background:rgba(52,211,153,.18); border-color:rgba(52,211,153,.55); }
+    .pill.clause { background:rgba(245,158,11,.18); border-color:rgba(245,158,11,.55); }
+    .pill.prep { background:rgba(167,139,250,.18); border-color:rgba(167,139,250,.55); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>LinguaLab — Unicode compat fix</h1>
+      <div class="small">Veilige tokenizer (feature-detectie), liquid-glass analysepillen</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <section class="panel">
+        <h2>🗣️ Invoer</h2>
+        <textarea id="input" placeholder="Typ of dicteer hier…"></textarea>
+        <div class="row">
+          <select id="source">
+            <option value="auto">Detecteer automatisch</option>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+            <option value="pt">Portugees (BR)</option>
+          </select>
+          <select id="target">
+            <option value="pt">Portugees (BR)</option>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+          </select>
+        </div>
+        <div class="row">
+          <label class="small"><input type="checkbox" id="carioca" checked> Carioca/informeel PT-BR</label>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnTranslate">↔️ Vertaal & Analyseer</button>
+          <button class="btn" id="btnClear">🧹 Leeg</button>
+        </div>
+        <div class="small" id="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>📘 Output</h2>
+        <div id="output" class="mono">Klaar voor input…</div>
+        <div id="analysis" class="tags" style="margin-top:10px;"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // Providers (same chain as eerder)
+    const ENDPOINTS = [
+      { name:'LibreTranslate .com', type:'libre', base:'https://libretranslate.com' },
+      { name:'LibreTranslate .de', type:'libre', base:'https://libretranslate.de' },
+      { name:'LibreTranslate astian', type:'libre', base:'https://translate.astian.org' },
+      { name:'LibreTranslate fyed', type:'libre', base:'https://translate.fyed.xyz' },
+      { name:'CORS proxy .com', type:'libre-proxy', base:'https://cors.isomorphic-git.org/https://libretranslate.com' },
+      { name:'CORS proxy .de', type:'libre-proxy', base:'https://cors.isomorphic-git.org/https://libretranslate.de' },
+      { name:'MyMemory', type:'mymemory', base:'https://api.mymemory.translated.net' }
+    ];
+    const statusEl = document.getElementById('status');
+    const inputEl = document.getElementById('input');
+    const outputEl = document.getElementById('output');
+    const analysisEl = document.getElementById('analysis');
+    const sourceEl = document.getElementById('source');
+    const targetEl = document.getElementById('target');
+    const cariocaEl = document.getElementById('carioca');
+
+    async function callJSON(url, body){
+      const ctrl = new AbortController();
+      const resP = fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify(body), signal:ctrl.signal });
+      const t = setTimeout(()=>ctrl.abort(), 12000);
+      try {
+        const res = await resP;
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } finally { clearTimeout(t); }
+    }
+    async function detectLangAuto(q, base, type){
+      if (type.startsWith('libre')) {
+        try {
+          const data = await callJSON(base + '/detect', { q });
+          if (Array.isArray(data) && data.length) {
+            const best = data.sort((a,b)=>(b.confidence||0)-(a.confidence||0))[0];
+            return best.language || 'en';
+          }
+        } catch(e){}
+      }
+      const t = q.toLowerCase();
+      if (/[ãõçáéíóúâêô]/u.test(t) || /você|tô|tá|cadê|grana|a gente/u.test(t)) return 'pt';
+      if (/(^|\\b)(het|de|een|ik|jij|wij|jullie|niet)(\\b|$)/u.test(t)) return 'nl';
+      return 'en';
+    }
+    async function translateProvider(q, src, dst, provider){
+      if (provider.type==='libre' || provider.type==='libre-proxy'){
+        let source = src;
+        if (source==='auto') source = await detectLangAuto(q, provider.base, provider.type);
+        const data = await callJSON(provider.base + '/translate', { q, source, target: dst, format:'text' });
+        return data.translatedText || data;
+      } else {
+        let source = src;
+        if (source==='auto') source = await detectLangAuto(q, provider.base, 'heuristic');
+        const url = provider.base + '/get?q=' + encodeURIComponent(q) + '&langpair=' + source + '|' + dst;
+        const r = await fetch(url); const j = await r.json();
+        if (j?.responseStatus !== 200) throw new Error('MyMemory ' + (j?.responseStatus||'err'));
+        return j?.responseData?.translatedText || '';
+      }
+    }
+    async function translateWithChain(q, src, dst){
+      let lastErr = null;
+      for (const p of ENDPOINTS){
+        try {
+          statusEl.textContent = 'Proberen via ' + p.name + '…';
+          const text = await translateProvider(q, src, dst, p);
+          return text;
+        } catch(e){ lastErr = e; }
+      }
+      throw lastErr || new Error('Geen provider beschikbaar');
+    }
+
+    // Carioca slang rules
+    const slangRules = [
+      {from:/\\bvocê está\\b/gi, to:'cê tá'},
+      {from:/\\bestá\\b/gi, to:'tá'},
+      {from:/\\bvocê\\b/gi, to:'cê'},
+      {from:/\\bestou\\b/gi, to:'tô'},
+      {from:/\\bpara o\\b/gi, to:'pro'},
+      {from:/\\bpara a\\b/gi, to:'pra'}
+    ];
+    function applyCarioca(pt){ let out=pt; slangRules.forEach(r=>out=out.replace(r.from,r.to)); return out; }
+
+    // === Unicode-aware tokenizer with FEATURE DETECTION ===
+    // Avoid regex-literal with \\p{L} that can hard-crash parse on older engines.
+    let WORD_RE;
+    (function(){
+      try {
+        WORD_RE = new RegExp("\\\\p{L}+|\\\\d+|[^\\\\s\\\\p{L}\\\\d]", "gu"); // uses property escapes if supported
+        // quick test to ensure it actually matches accent letters as one token
+        const test = "coração".match(WORD_RE);
+        if (!test || test.length === 0) throw new Error("bad");
+      } catch (e) {
+        // Fallback range covering most Latin accents
+        WORD_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+|\d+|[^\sA-Za-zÀ-ÖØ-öø-ÿ\d]/g;
+      }
+    })();
+    function tokenizeUnicode(s){
+      return s.match(WORD_RE) || [];
+    }
+
+    const pronouns = { nl:['ik','jij','je','u','hij','zij','ze','wij','we','jullie','zij'],
+                       en:['i','you','he','she','we','they'],
+                       pt:['eu','você','ele','ela','a','gente','nós','vocês','eles','elas'] };
+    const preps = { nl:['in','op','aan','met','voor','na','bij','naar','van','tot','onder','boven','tijdens','zonder','tegen','rond','door','over','uit'],
+                    en:['in','on','at','to','for','from','with','by','about','over','under','between','without','during','against','through'],
+                    pt:['em','no','na','num','numa','com','para','pra','pro','de','do','da','dos','das','por','sem','entre','sobre','até','a'] };
+    const clauseMarkers = { nl:['dat','omdat','als','terwijl','wanneer','zodat','hoewel','die','waar','toen'],
+                            en:['that','because','if','while','when','so','although','who','which','where'],
+                            pt:['que','porque','se','enquanto','quando','para','embora','quem','onde'] };
+
+    function analyzeSentence(sentence, lang){
+      const words = tokenizeUnicode(sentence);
+      const tags = [];
+      const lower = words.map(w=>w.toLowerCase());
+
+      const subjSet = new Set(pronouns[lang]||[]);
+      for (let i=0;i<lower.length;i++){ if (subjSet.has(lower[i])) { tags.push({i,type:'subj'}); break; } }
+
+      const prepSet = new Set(preps[lang]||[]);
+      for (let i=0;i<lower.length;i++){ if (prepSet.has(lower[i])) tags.push({i,type:'prep'}); }
+
+      const cm = new Set(clauseMarkers[lang]||[]);
+      for (let i=0;i<lower.length;i++){ if (cm.has(lower[i])) tags.push({i,type:'clause'}); }
+
+      // naive verb markers
+      for (let i=0;i<lower.length;i++){
+        const w = lower[i];
+        if ((lang==='en' && (/ing$|ed$|\\w+s$/i.test(w))) ||
+            (lang==='nl' && (/^ge\\w+/i.test(w))) ||
+            (lang==='pt' && (/(ei|ou|aram|ava|ia|amos|em|am|ou)$/i.test(w)))) {
+          tags.push({i,type:'verb'});
+        }
+      }
+      return { words, tags };
+    }
+
+    function renderTags(container, analysis){
+      const { words, tags } = analysis;
+      const map = new Map();
+      tags.forEach(t=>{ if(!map.has(t.i)) map.set(t.i,[]); map.get(t.i).push(t.type); });
+      container.innerHTML = '';
+      for (let i=0;i<words.length;i++){
+        const tok = words[i];
+        const types = map.get(i) || [];
+        if (types.length){
+          const span = document.createElement('span');
+          span.textContent = tok;
+          span.className = 'pill ' + types.join(' ');
+          span.dataset.types = types.join(',');
+          container.appendChild(span);
+        } else {
+          container.appendChild(document.createTextNode(tok));
+        }
+        container.appendChild(document.createTextNode(' '));
+      }
+    }
+
+    document.getElementById('btnTranslate').addEventListener('click', async () => {
+      const text = inputEl.value.trim();
+      if (!text) { alert('Voer eerst een zin in.'); return; }
+      const src = sourceEl.value; const dst = targetEl.value;
+      statusEl.textContent = 'Vertalen…';
+      outputEl.textContent = ''; analysisEl.textContent='';
+
+      try {
+        let translated = await translateWithChain(text, src, dst);
+        if (dst==='pt' && cariocaEl.checked) translated = applyCarioca(translated);
+        outputEl.textContent = '▶ Vertaling (' + dst + '):\n' + translated;
+
+        const analysis = analyzeSentence(translated, dst);
+        renderTags(analysisEl, analysis);
+        statusEl.textContent = 'Klaar.';
+      } catch (e) {
+        statusEl.textContent = 'Kon niet vertalen.';
+        outputEl.textContent = 'Fout: ' + (e.message||'onbekend');
+      }
+    });
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+      inputEl.value=''; outputEl.textContent='Klaar voor input…'; analysisEl.textContent=''; statusEl.textContent='';
+    });
+
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
+  </script>
+</body>
+</html>
