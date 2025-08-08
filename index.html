@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>LinguaLab — Liquid Glass (Stap 2: Live Vertalen)</title>
+  <meta name="theme-color" content="#0b1021">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    :root {
+      --bg: rgba(12,14,16, 1);
+      --panel: rgba(255,255,255,0.08);
+      --panel-strong: rgba(255,255,255,0.12);
+      --text: #e8ecf1;
+      --muted: #a8b0ba;
+      --accent: #7dd3fc;
+      --accent-2: #c3eaff;
+      --shadow: 0 10px 30px rgba(0,0,0,0.25);
+      --hairline: 1px solid rgba(255,255,255,0.14);
+      --backdrop: blur(18px) saturate(130%);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --ok: #38d39f;
+      --warn: #ffd166;
+      --bad: #ff6b6b;
+      --glass: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f7fb;
+        --panel: rgba(255,255,255,0.65);
+        --panel-strong: rgba(255,255,255,0.8);
+        --text: #0b1520;
+        --muted: #536070;
+        --accent: #007aff;
+        --accent-2: #64b5ff;
+        --shadow: 0 8px 20px rgba(0,0,0,0.12);
+        --hairline: 1px solid rgba(0,0,0,0.08);
+        --glass: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+      }
+    }
+    html, body {
+      margin: 0; height: 100%;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      -webkit-text-size-adjust: 100%;
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: var(--backdrop);
+      background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.05));
+      border-bottom: var(--hairline);
+      padding-top: env(safe-area-inset-top);
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: .2px; display:flex; align-items:center; gap:10px;}
+    .spark { color: var(--accent); filter: drop-shadow(0 0 8px rgba(125,211,252,0.35)); }
+    .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 16px; margin-top: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--panel); border: var(--hairline); border-radius: var(--radius);
+      box-shadow: var(--shadow); backdrop-filter: var(--backdrop); padding: 14px;
+      animation: slideIn .45s ease both;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(8px) scale(0.995);} to { opacity: 1; transform: translateY(0) scale(1);} }
+    textarea, select, input {
+      width: 100%; background: var(--panel-strong); border: var(--hairline); color: var(--text);
+      border-radius: var(--radius-sm); padding: 12px 14px; font: inherit; font-size: 16px; outline: none;
+      transition: box-shadow .2s ease, border-color .2s ease;
+    }
+    textarea { min-height: 140px; resize: vertical; }
+    textarea:focus, select:focus, input:focus { box-shadow: 0 0 0 3px rgba(125,211,252,0.25); border-color: rgba(125,211,252,0.6); }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 160px; }
+    .btn {
+      appearance: none; -webkit-appearance: none; cursor: pointer; user-select: none;
+      padding: 12px 14px; border-radius: 14px; border: var(--hairline); background: var(--glass);
+      min-height: 44px; font-weight: 600; letter-spacing: .2px;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      transition: transform .05s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { border-color: rgba(125,211,252,0.7); box-shadow: 0 4px 18px rgba(125,211,252,0.18); }
+    .segmented { display: inline-flex; gap: 0; border-radius: 12px; overflow: hidden; border: var(--hairline); background: var(--panel-strong); }
+    .segmented button { flex: 1; border: none; padding: 10px 12px; background: transparent; color: var(--text); min-height: 44px; font: inherit; }
+    .segmented button.active { background: rgba(125,211,252,0.18); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .small { font-size: 12px; color: var(--muted); }
+    .kudos { text-align: right; color: var(--muted); font-size: 12px; }
+    footer { margin: 18px 0; padding-bottom: env(safe-area-inset-bottom); }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius: 999px; background: var(--panel-strong); border: var(--hairline); color: var(--muted); }
+    .badge { display:inline-block; padding:6px 10px; border-radius: 10px; background: rgba(125,211,252,0.16); border: 1px solid rgba(125,211,252,0.35); color: var(--accent-2); font-size: 12px; }
+    .fadein { animation: slideIn .35s ease both; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>LinguaLab <span class="spark">⚡</span><span class="small"> — Liquid Glass (Stap 2)</span></h1>
+      <div class="subtitle">Live vertalen via LibreTranslate • PT-BR slang-modus • PWA</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <section class="panel">
+        <h2 style="margin:6px 0 10px 0;">🗣️ Invoer</h2>
+        <textarea id="input" placeholder="Typ of dicteer hier (iOS: gebruik de toetsenbord-microfoon)…"
+          autocapitalize="sentences" autocorrect="on" spellcheck="true"></textarea>
+
+        <div class="row" style="margin-top:10px;">
+          <select id="source">
+            <option value="auto">Detecteer automatisch</option>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+            <option value="pt">Portugees (BR)</option>
+          </select>
+          <select id="target">
+            <option value="pt">Portugees (BR)</option>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div class="segmented" role="tablist" aria-label="Stijl">
+            <button class="active" id="modePrecise" aria-selected="true">Nauwkeurig</button>
+            <button id="modeInformal">Informeel</button>
+          </div>
+          <label class="pill"><input type="checkbox" id="carioca" checked> Carioca/informeel PT-BR</label>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn primary" id="btnTranslate">↔️ Vertaal & Leg uit</button>
+          <button class="btn" id="btnClear">🧹 Leeg</button>
+        </div>
+
+        <div class="small" id="status" style="margin-top:8px;"></div>
+      </section>
+
+      <section class="panel">
+        <h2 style="margin:6px 0 10px 0;">📘 Output</h2>
+        <div id="output" class="mono" style="white-space:pre-wrap; min-height: 160px;">Klaar voor input…</div>
+        <div class="small" style="margin-top:8px;">Grammatica-analyse volgt in stap 3.</div>
+      </section>
+    </div>
+
+    <section class="panel fadein" style="margin-top:16px;">
+      <h2 style="margin:6px 0 10px 0;">ℹ️ Tips</h2>
+      <ul class="small" style="margin-top:0;">
+        <li>Voor PT-BR informeel: zet <b>Carioca/informeel</b> aan (para→pra/pro, você está→cê tá, estou→tô).</li>
+        <li>Geen internet? Je krijgt een nette melding; offline-vertalen komt later als fallback.</li>
+      </ul>
+      <div class="kudos">Gemaakt voor Tom — live vertalen</div>
+    </section>
+  </main>
+
+  <script>
+    // Service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+
+    const statusEl = document.getElementById('status');
+    const inputEl  = document.getElementById('input');
+    const outEl    = document.getElementById('output');
+    const sourceEl = document.getElementById('source');
+    const targetEl = document.getElementById('target');
+    const cariocaEl= document.getElementById('carioca');
+
+    const slangRules = [
+      {from:/\\bvocê está\\b/gi, to:'cê tá'},
+      {from:/\\bestá\\b/gi, to:'tá'},
+      {from:/\\bvocê\\b/gi, to:'cê'},
+      {from:/\\bestou\\b/gi, to:'tô'},
+      {from:/\\bpara o\\b/gi, to:'pro'},
+      {from:/\\bpara a\\b/gi, to:'pra'}
+    ];
+
+    async function translateText(text, src, dst) {
+      const endpoint = 'https://libretranslate.com/translate';
+      const body = { q: text, source: src, target: dst, format: 'text' };
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data.translatedText;
+    }
+
+    function applyCarioca(pt) {
+      let out = pt;
+      slangRules.forEach(r => { out = out.replace(r.from, r.to); });
+      return out;
+    }
+
+    document.getElementById('btnTranslate').addEventListener('click', async () => {
+      const text = inputEl.value.trim();
+      if (!text) { alert('Voer eerst een zin in.'); return; }
+
+      const src = sourceEl.value; const dst = targetEl.value;
+      statusEl.textContent = navigator.onLine ? 'Vertalen…' : 'Je bent offline — vertalen kan mislukken.';
+      outEl.textContent = '';
+
+      try {
+        let translated = await translateText(text, src, dst);
+        if (dst === 'pt' && cariocaEl.checked) translated = applyCarioca(translated);
+
+        const header = `▶ Vertaling (${dst}):\\n`;
+        outEl.textContent = header + translated + '\\n\\n▶ Uitleg (stap 3 komt hier)…';
+        outEl.classList.add('fadein');
+        statusEl.textContent = 'Klaar.';
+      } catch (err) {
+        statusEl.textContent = 'Fout bij vertalen.';
+        outEl.textContent = 'Kon niet vertalen. ' + (navigator.onLine ? '(Serverfout of rate limit.)' : '(Je bent offline.)');
+      }
+    });
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+      inputEl.value = '';
+      outEl.textContent = 'Klaar voor input…';
+      statusEl.textContent = '';
+    });
+
+    // UI toggles
+    const modePrecise = document.getElementById('modePrecise');
+    const modeInformal = document.getElementById('modeInformal');
+    [modePrecise, modeInformal].forEach(btn => btn.addEventListener('click', () => {
+      modePrecise.classList.remove('active'); modeInformal.classList.remove('active');
+      btn.classList.add('active');
+    }));
+  </script>
+</body>
+</html>
