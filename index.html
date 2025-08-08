@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>LinguaLab — Pro Index</title>
+  <meta name="theme-color" content="#0b1021">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    textarea, select, input, button { -webkit-appearance: none; appearance: none; background-clip: padding-box; box-sizing: border-box; }
+    :root { --bg:#0c0e10; --panel:rgba(255,255,255,0.08); --panel-strong:rgba(255,255,255,0.12);
+      --text:#e8ecf1; --muted:#a8b0ba; --hairline:1px solid rgba(255,255,255,0.14);
+      --backdrop:blur(18px) saturate(130%); --radius:18px; --radius-sm:12px;
+      --blue:#60a5fa; --green:#34d399; --orange:#f59e0b; --purple:#a78bfa; --shadow: 0 10px 30px rgba(0,0,0,0.25); }
+    @media (prefers-color-scheme: light) {
+      :root { --bg:#f6f7fb; --panel:rgba(255,255,255,0.65); --panel-strong:rgba(255,255,255,0.8);
+        --text:#0b1520; --muted:#536070; --hairline:1px solid rgba(0,0,0,0.08); --shadow:0 8px 20px rgba(0,0,0,0.12); }
+    }
+    html, body { margin:0; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    header { position:sticky; top:0; z-index:10; backdrop-filter:var(--backdrop);
+      background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05)); border-bottom:var(--hairline);
+      padding-top: env(safe-area-inset-top); }
+    .wrap { max-width:980px; margin:0 auto; padding:16px; }
+    h1 { margin:0; font-size:22px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .header-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .subtitle { color:var(--muted); font-size:13px; margin-top:4px; }
+    .grid { display:grid; grid-template-columns:1.05fr .95fr; gap:16px; margin-top:16px; }
+    @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+    .panel { background:var(--panel); border:var(--hairline); border-radius:18px; backdrop-filter:var(--backdrop); padding:14px; box-shadow:var(--shadow); overflow:hidden; }
+    textarea, select, button { width:100%; font:inherit; font-size:16px; }
+    textarea { background:var(--panel-strong); border:var(--hairline); border-radius:12px; min-height:140px; padding:12px 14px; color:var(--text); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .btn { border:var(--hairline); background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));
+      border-radius:14px; padding:12px 14px; cursor:pointer; min-height:44px; }
+    .btn.inline { width:auto; padding:8px 10px; border-radius:10px; }
+    .small { font-size:12px; color:var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; white-space:pre-wrap; }
+    .tags { line-height:2.1; font-size:17px; white-space: normal; word-wrap: break-word; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.22); background:var(--panel-strong); margin:2px 2px; }
+    .pill.subj { background:rgba(96,165,250,.18); border-color:rgba(96,165,250,.55); }
+    .pill.verb { background:rgba(52,211,153,.18); border-color:rgba(52,211,153,.55); }
+    .pill.clause { background:rgba(245,158,11,.18); border-color:rgba(245,158,11,.55); }
+    .pill.prep { background:rgba(167,139,250,.18); border-color:rgba(167,139,250,.55); }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; border:var(--hairline); background:var(--panel-strong);
+      border-radius:999px; padding:6px 10px; }
+    .backdrop { position:fixed; inset:0; background:rgba(0,0,0,.28); backdrop-filter:blur(2px); display:none; }
+    .sheet { position:fixed; left:50%; bottom:12px; transform:translate(-50%, 15px); max-width:92vw;
+      background:var(--panel); border:var(--hairline); border-radius:16px; padding:12px; display:none; transition:transform .2s ease, opacity .2s ease; opacity:0; box-shadow:var(--shadow); }
+    .sheet.show { display:block; opacity:1; transform:translate(-50%, 0); }
+    .pair { background:var(--panel-strong); border:var(--hairline); border-radius:10px; padding:8px; margin-top:8px; }
+    .list { max-height: 50vh; overflow: auto; }
+    .item { display:flex; gap:8px; align-items:flex-start; padding:8px; border:var(--hairline); border-radius:12px; background:var(--panel-strong); margin-top:8px; }
+    a.link{ color:#60a5fa; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>
+        <span>LinguaLab — Pro</span>
+        <span class="header-actions">
+          <a class="btn inline link" href="./camera.html">📷 Camera‑Translate</a>
+          <a class="btn inline link" href="./train.html">📚 Oefenmodus</a>
+          <button class="btn inline" id="btnFavs">⭐ Favorieten</button>
+          <button class="btn inline" id="btnSettings">⚙️ Instellingen</button>
+        </span>
+      </h1>
+      <div class="subtitle">Liquid‑glass UI • Unicode‑veilige analyse • Copy/Share/TTS • Popups • Favorieten • Instellingen • <strong>SRS geïntegreerd</strong></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <section class="panel">
+        <h2>🗣️ Invoer</h2>
+        <textarea id="input" placeholder="Typ of dicteer hier…"></textarea>
+        <div class="row">
+          <select id="source">
+            <option value="auto">Detecteer automatisch</option>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+            <option value="pt">Portugees (BR)</option>
+          </select>
+          <select id="target">
+            <option value="pt">Portugees (BR)</option>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+          </select>
+        </div>
+        <div class="row">
+          <label class="small"><input type="checkbox" id="carioca" checked> Carioca/informeel PT-BR</label>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnTranslate">↔️ Vertaal & Analyseer</button>
+          <button class="btn" id="btnSwap">↕️ Wissel talen</button>
+          <button class="btn" id="btnClear">🧹 Leeg</button>
+        </div>
+        <div class="small" id="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>📘 Output</h2>
+        <div id="output" class="mono">Klaar voor input…</div>
+        <div class="actions">
+          <button class="btn inline" id="btnCopy">🔗 Kopieer</button>
+          <button class="btn inline" id="btnShare">↗️ Deel</button>
+          <button class="btn inline" id="btnSpeak">🔊 Voorlezen</button>
+          <button class="btn inline" id="btnSaveFav">⭐ Bewaar</button>
+          <button class="btn inline" id="btnSaveCard">📚 Oefenen</button>
+        </div>
+        <div id="analysis" class="tags" style="margin-top:10px;"></div>
+        <div id="notes" class="small" style="margin-top:8px;"></div>
+      </section>
+    </div>
+    <div id="installTip" class="badge" style="margin-top:12px; display:none;">👉 Tip: zet op je beginscherm via “Deel” → “Zet op beginscherm”.</div>
+  </main>
+
+  <!-- Popup for grammar items -->
+  <div class="backdrop" id="popBg"></div>
+  <div class="sheet" id="pop">
+    <h3 id="popTitle">Uitleg</h3>
+    <div id="popText" class="small"></div>
+    <div class="pair">
+      <div class="small">Voorbeeld (NL)</div>
+      <div id="popEgNl" class="mono"></div>
+    </div>
+    <div class="pair">
+      <div class="small">Voorbeeld (doeltaal)</div>
+      <div id="popEgTgt" class="mono"></div>
+    </div>
+    <div class="row">
+      <button class="btn inline" id="btnUseExample">⬇️ Gebruik voorbeeld in invoer</button>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="backdrop" id="setBg"></div>
+  <div class="sheet" id="settings">
+    <h3>Instellingen</h3>
+    <div class="row">
+      <label class="small" style="flex:1;">
+        Standaard bron
+        <select id="setSrc">
+          <option value="auto">Detecteer automatisch</option>
+          <option value="nl">Nederlands</option>
+          <option value="en">Engels</option>
+          <option value="pt">Portugees (BR)</option>
+        </select>
+      </label>
+      <label class="small" style="flex:1;">
+        Standaard doel
+        <select id="setTgt">
+          <option value="pt">Portugees (BR)</option>
+          <option value="nl">Nederlands</option>
+          <option value="en">Engels</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label class="small"><input type="checkbox" id="setCarioca"> Carioca-modus standaard aan</label>
+    </div>
+    <div class="row">
+      <button class="btn inline" id="btnSaveSettings">💾 Opslaan</button>
+      <button class="btn inline" id="btnCloseSettings">Sluiten</button>
+    </div>
+  </div>
+
+  <!-- Favorites modal -->
+  <div class="backdrop" id="favBg"></div>
+  <div class="sheet" id="favorites">
+    <h3>Favorieten</h3>
+    <div id="favList" class="list small"></div>
+    <div class="row">
+      <button class="btn inline" id="btnCloseFavs">Sluiten</button>
+      <button class="btn inline" id="btnClearFavs">🗑️ Wis alles</button>
+    </div>
+  </div>
+
+  <script>
+    const ENDPOINTS = [
+      { name:'LibreTranslate .com', type:'libre', base:'https://libretranslate.com' },
+      { name:'LibreTranslate .de', type:'libre', base:'https://libretranslate.de' },
+      { name:'LibreTranslate astian', type:'libre', base:'https://translate.astian.org' },
+      { name:'LibreTranslate fyed', type:'libre', base:'https://translate.fyed.xyz' },
+      { name:'CORS proxy .com', type:'libre-proxy', base:'https://cors.isomorphic-git.org/https://libretranslate.com' },
+      { name:'CORS proxy .de', type:'libre-proxy', base:'https://cors.isomorphic-git.org/https://libretranslate.de' },
+      { name:'MyMemory', type:'mymemory', base:'https://api.mymemory.translated.net' }
+    ];
+    const statusEl = document.getElementById('status');
+    const inputEl = document.getElementById('input');
+    const outputEl = document.getElementById('output');
+    const analysisEl = document.getElementById('analysis');
+    const notesEl = document.getElementById('notes');
+    const sourceEl = document.getElementById('source');
+    const targetEl = document.getElementById('target');
+    const cariocaEl = document.getElementById('carioca');
+
+    const SKEY = 'll_settings_v1';
+    const FKEY = 'll_favs_v1';
+    function loadSettings(){ try { return JSON.parse(localStorage.getItem(SKEY)) || {}; } catch { return {}; } }
+    function saveSettings(s){ localStorage.setItem(SKEY, JSON.stringify(s||{})); }
+    function getFavs(){ try { return JSON.parse(localStorage.getItem(FKEY)) || []; } catch { return []; } }
+    function setFavs(f){ localStorage.setItem(FKEY, JSON.stringify(f||[])); }
+
+    async function copyText(text){
+      try {
+        if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+        const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); return true;
+      } catch { return false; }
+    }
+    async function shareText(title, text){
+      try { if (navigator.share) { await navigator.share({title, text}); return true; } } catch {}
+      return false;
+    }
+
+    async function callJSON(url, body){
+      const ctrl = new AbortController();
+      const resP = fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify(body), signal:ctrl.signal });
+      const t = setTimeout(()=>ctrl.abort(), 12000);
+      try {
+        const res = await resP;
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } finally { clearTimeout(t); }
+    }
+    async function detectLangAuto(q, base, type){
+      if (type.startsWith('libre')) {
+        try {
+          const data = await callJSON(base + '/detect', { q });
+          if (Array.isArray(data) && data.length) {
+            const best = data.sort((a,b)=>(b.confidence||0)-(a.confidence||0))[0];
+            return best.language || 'en';
+          }
+        } catch(e){}
+      }
+      const t = q.toLowerCase();
+      if (/[ãõçáéíóúâêô]/u.test(t) || /você|tô|tá|cadê|grana|a gente/u.test(t)) return 'pt';
+      if (/(^|\\b)(het|de|een|ik|jij|wij|jullie|niet)(\\b|$)/u.test(t)) return 'nl';
+      return 'en';
+    }
+    async function translateProvider(q, src, dst, provider){
+      if (provider.type==='libre' || provider.type==='libre-proxy'){
+        let source = src;
+        if (source==='auto') source = await detectLangAuto(q, provider.base, provider.type);
+        const data = await callJSON(provider.base + '/translate', { q, source, target: dst, format:'text' });
+        return data.translatedText || data;
+      } else {
+        let source = src;
+        if (source==='auto') source = await detectLangAuto(q, provider.base, 'heuristic');
+        const url = provider.base + '/get?q=' + encodeURIComponent(q) + '&langpair=' + source + '|' + dst;
+        const r = await fetch(url); const j = await r.json();
+        if (j?.responseStatus !== 200) throw new Error('MyMemory ' + (j?.responseStatus||'err'));
+        return j?.responseData?.translatedText || '';
+      }
+    }
+    async function translateWithChain(q, src, dst){
+      let lastErr = null;
+      for (const p of ENDPOINTS){
+        try {
+          statusEl.textContent = 'Proberen via ' + p.name + '…';
+          const text = await translateProvider(q, src, dst, p);
+          return { text, provider: p.name };
+        } catch(e){ lastErr = e; }
+      }
+      throw lastErr || new Error('Geen provider beschikbaar');
+    }
+
+    const slangRules = [
+      {from:/\\bvocê está\\b/gi, to:'cê tá'},
+      {from:/\\bestá\\b/gi, to:'tá'},
+      {from:/\\bvocê\\b/gi, to:'cê'},
+      {from:/\\bestou\\b/gi, to:'tô'},
+      {from:/\\bpara o\\b/gi, to:'pro'},
+      {from:/\\bpara a\\b/gi, to:'pra'}
+    ];
+    function applyCarioca(pt){ let out=pt; slangRules.forEach(r=>out=out.replace(r.from,r.to)); return out; }
+
+    let WORD_RE;
+    (function(){
+      try {
+        WORD_RE = new RegExp("\\\\p{L}+|\\\\d+|[^\\\\s\\\\p{L}\\\\d]", "gu");
+        const test = "coração".match(WORD_RE);
+        if (!test || test.length === 0) throw new Error("bad");
+      } catch (e) {
+        WORD_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+|\d+|[^\sA-Za-zÀ-ÖØ-öø-ÿ\d]/g;
+      }
+    })();
+    function tokenizeUnicode(s){ return s.match(WORD_RE) || []; }
+
+    const pronouns = { nl:['ik','jij','je','u','hij','zij','ze','wij','we','jullie','zij'],
+                       en:['i','you','he','she','we','they'],
+                       pt:['eu','você','ele','ela','a','gente','nós','vocês','eles','elas'] };
+    const preps = { nl:['in','op','aan','met','voor','na','bij','naar','van','tot','onder','boven','tijdens','zonder','tegen','rond','door','over','uit'],
+                    en:['in','on','at','to','for','from','with','by','about','over','under','between','without','during','against','through'],
+                    pt:['em','no','na','num','numa','com','para','pra','pro','de','do','da','dos','das','por','sem','entre','sobre','até','a'] };
+    const clauseMarkers = { nl:['dat','omdat','als','terwijl','wanneer','zodat','hoewel','die','waar','toen'],
+                            en:['that','because','if','while','when','so','although','who','which','where'],
+                            pt:['que','porque','se','enquanto','quando','para','embora','quem','onde'] };
+
+    function analyzeSentence(sentence, lang){
+      const words = tokenizeUnicode(sentence);
+      const tags = [];
+      const lower = words.map(w=>w.toLowerCase());
+
+      const subjSet = new Set(pronouns[lang]||[]);
+      for (let i=0;i<lower.length;i++){ if (subjSet.has(lower[i])) { tags.push({i,type:'subj'}); break; } }
+
+      const prepSet = new Set(preps[lang]||[]);
+      for (let i=0;i<lower.length;i++){ if (prepSet.has(lower[i])) tags.push({i,type:'prep'}); }
+
+      const cm = new Set(clauseMarkers[lang]||[]);
+      for (let i=0;i<lower.length;i++){ if (cm.has(lower[i])) tags.push({i,type:'clause'}); }
+
+      for (let i=0;i<lower.length;i++){
+        const w = lower[i];
+        if ((lang==='en' && (/ing$|ed$|\\w+s$/i.test(w))) ||
+            (lang==='nl' && (/^ge\\w+/i.test(w))) ||
+            (lang==='pt' && (/(ei|ou|aram|ava|ia|amos|em|am|ou)$/i.test(w)))) {
+          tags.push({i,type:'verb'});
+        }
+      }
+      return { words, tags };
+    }
+
+    function renderTags(container, analysis){
+      const { words, tags } = analysis;
+      const map = new Map();
+      tags.forEach(t=>{ if(!map.has(t.i)) map.set(t.i,[]); map.get(t.i).push(t.type); });
+      container.innerHTML = '';
+      for (let i=0;i<words.length;i++){
+        const tok = words[i];
+        const types = map.get(i) || [];
+        if (types.length){
+          const span = document.createElement('span');
+          span.textContent = tok;
+          span.className = 'pill ' + types.join(' ');
+          span.dataset.types = types.join(',');
+          container.appendChild(span);
+        } else {
+          container.appendChild(document.createTextNode(tok));
+        }
+        container.appendChild(document.createTextNode(' '));
+      }
+    }
+
+    const popBg = document.getElementById('popBg');
+    const pop = document.getElementById('pop');
+    const popTitle = document.getElementById('popTitle');
+    const popText  = document.getElementById('popText');
+    const popEgNl  = document.getElementById('popEgNl');
+    const popEgTgt = document.getElementById('popEgTgt');
+    const btnUseExample = document.getElementById('btnUseExample');
+
+    const EG = {
+      subj: ['Wij eten vanavond samen.','Zij komt morgen op bezoek.','Ik begrijp het nu beter.','Jullie kunnen hier wachten.','Hij werkt al jaren in Brazilië.','Ik moet morgen vroeg opstaan.','Zij willen later verhuizen.','We spelen straks een potje.'],
+      verb: ['We hebben het gisteren besproken.','Ik zal morgen vertrekken.','Ze waren aan het oefenen.','Hij probeert elke dag te lezen.','Ik ga straks koken.','We zijn te laat vertrokken.','Hij heeft het niet gezien.','Ze blijft nog even werken.'],
+      clause: ['Omdat het regent, blijven we thuis.','Als ik tijd heb, bel ik je.','Toen hij aankwam, begonnen we meteen.','Hoewel het laat is, werken we door.','Voordat we vertrekken, controleren we de tickets.','Zodat iedereen het begrijpt, leg ik het rustig uit.','Als je wil, kunnen we later gaan.'],
+      prep: ['Na het werk ga ik sporten.','Ze woont bij het park.','We reizen met de trein.','Ik wacht voor de deur.','Hij praat over zijn studie.','Ik kom uit Nederland.','Het boek ligt op tafel.','We lopen naar het strand.']
+    };
+    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+    function openPop(type, tgt){
+      const label = {subj:'Onderwerp', verb:'Werkwoord', clause:'Bijzin', prep:'Voorzetsel'}[type] || 'Uitleg';
+      const expl = {
+        subj:'Het onderwerp voert de handeling uit. Vergelijk de positie in beide talen.',
+        verb:'Werkwoord(en) geven tijd/persoon aan. Let op hulpwerkwoorden en ge-/ing-vormen.',
+        clause:'Bijzin-markers (dat/omdat/als/que) veranderen vaak de volgorde.',
+        prep:'Voorzetsels verbinden woorden met plaats/tijd/richting (in/op/naar — em/para/com).'
+      }[type] || '';
+      popTitle.textContent = label; popText.textContent = expl;
+      const ex = pick(EG[type] || ['Voorbeeld niet beschikbaar.']);
+      popEgNl.textContent = ex; btnUseExample.dataset.text = ex;
+      popEgTgt.textContent = 'Vertalen…';
+      popBg.style.display='block'; pop.classList.add('show');
+      translateWithChain(ex, 'nl', tgt).then(({text})=> popEgTgt.textContent = text)
+      .catch(()=> popEgTgt.textContent = '(Kon voorbeeld niet vertalen)');
+    }
+    popBg.addEventListener('click', ()=>{ pop.classList.remove('show'); popBg.style.display='none'; });
+    btnUseExample.addEventListener('click', ()=>{
+      inputEl.value = btnUseExample.dataset.text || ''; sourceEl.value = 'nl';
+      pop.classList.remove('show'); popBg.style.display='none'; inputEl.focus();
+    });
+
+    const SRS_KEY='ll_srs_v1';
+    function srsGet(){ try{return JSON.parse(localStorage.getItem(SRS_KEY))||[];}catch{return [];} }
+    function srsSet(d){ localStorage.setItem(SRS_KEY, JSON.stringify(d||[])); }
+    function srsAdd(front, back, src, dst){
+      const id=('id_'+btoa(unescape(encodeURIComponent(front.slice(0,120)+src+dst)))).replace(/=+$/,'');
+      const deck=srsGet(); if(deck.some(c=>c.id===id)) return false;
+      deck.push({id,front,back,src,dst,ef:2.5,rep:0,int:0,due:Date.now()}); srsSet(deck); return true;
+    }
+
+    document.getElementById('btnTranslate').addEventListener('click', async () => {
+      const text = inputEl.value.trim();
+      if (!text) { alert('Voer eerst een zin in.'); return; }
+      const src = sourceEl.value; const dst = targetEl.value;
+
+      statusEl.textContent = navigator.onLine ? 'Vertalen…' : 'Je bent offline — kan mislukken.';
+      outputEl.textContent = ''; analysisEl.textContent=''; notesEl.textContent='';
+
+      try {
+        let { text: translated, provider } = await translateWithChain(text, src, dst);
+        if (dst==='pt' && cariocaEl.checked) translated = applyCarioca(translated);
+        outputEl.textContent = `▶ Vertaling (${dst}) via ${provider}:\n` + translated;
+
+        const analysis = analyzeSentence(translated, dst);
+        renderTags(analysisEl, analysis);
+        notesEl.textContent = (dst==='pt' && cariocaEl.checked) ? '🎧 Slang-modus: para→pra/pro, você está→cê tá, estou→tô.' : '';
+
+        outputEl.dataset.last = translated;
+        outputEl.dataset.meta = JSON.stringify({src, dst, input:text});
+        statusEl.textContent = 'Klaar.';
+      } catch (err) {
+        statusEl.textContent = 'Kon niet vertalen.';
+        outputEl.textContent = 'Fout: ' + (err?.message || 'onbekend');
+      }
+    });
+
+    document.getElementById('btnSwap').addEventListener('click', () => {
+      const s = sourceEl.value; const t = targetEl.value;
+      if (s === 'auto') { alert('Bron op “auto” kan niet worden gewisseld. Kies eerst een bron.'); return; }
+      sourceEl.value = t; targetEl.value = s;
+    });
+    document.getElementById('btnClear').addEventListener('click', () => {
+      inputEl.value=''; outputEl.textContent='Klaar voor input…'; analysisEl.textContent=''; notesEl.textContent=''; statusEl.textContent='';
+    });
+    document.getElementById('btnCopy').addEventListener('click', async () => {
+      const txt = outputEl.dataset.last || ''; if (!txt) { alert('Nog geen vertaling.'); return; }
+      const ok = await copyText(txt); statusEl.textContent = ok ? 'Gekopieerd.' : 'Kopiëren mislukt.';
+    });
+    document.getElementById('btnShare').addEventListener('click', async () => {
+      const txt = outputEl.dataset.last || ''; if (!txt) { alert('Nog geen vertaling.'); return; }
+      const ok = await shareText('LinguaLab – vertaling', txt); statusEl.textContent = ok ? 'Deelvenster geopend.' : 'Delen niet ondersteund.';
+    });
+    function speak(text, lang){
+      try { const u = new SpeechSynthesisUtterance(text); u.lang = lang==='pt' ? 'pt-BR' : (lang==='nl' ? 'nl-NL' : 'en-US'); speechSynthesis.cancel(); speechSynthesis.speak(u); return true; } catch { return false; }
+    }
+    document.getElementById('btnSpeak').addEventListener('click', () => {
+      const txt = outputEl.dataset.last || ''; if (!txt) { alert('Nog geen vertaling.'); return; }
+      const ok = speak(txt, targetEl.value); statusEl.textContent = ok ? 'Voorlezen…' : 'Voorlezen niet ondersteund.';
+    });
+
+    document.getElementById('btnSaveFav').addEventListener('click', () => {
+      const txt = outputEl.dataset.last || ''; if (!txt) { alert('Nog geen vertaling om te bewaren.'); return; }
+      const meta = JSON.parse(outputEl.dataset.meta || '{}');
+      const favs = getFavs(); favs.unshift({ ts: Date.now(), input: meta.input||'', src: meta.src||'', dst: meta.dst||'', out: txt });
+      setFavs(favs.slice(0,200)); statusEl.textContent = '⭐ Bewaard.';
+      srsAdd(meta.input||'', txt, meta.src||'auto', meta.dst||'pt');
+    });
+
+    document.getElementById('btnSaveCard').addEventListener('click', ()=>{
+      const txt = outputEl.dataset.last || ''; if (!txt) { alert('Nog geen vertaling.'); return; }
+      const meta = JSON.parse(outputEl.dataset.meta || '{}');
+      const ok = srsAdd(meta.input||'', txt, meta.src||'auto', meta.dst||'pt');
+      statusEl.textContent = ok ? '📚 Oefenkaart toegevoegd.' : 'Kaart bestond al.';
+    });
+
+    const favBg = document.getElementById('favBg');
+    const favSheet = document.getElementById('favorites');
+    document.getElementById('btnFavs').addEventListener('click', ()=>{ renderFavs(); favBg.style.display='block'; favSheet.classList.add('show'); });
+    document.getElementById('btnCloseFavs').addEventListener('click', ()=>{ favSheet.classList.remove('show'); favBg.style.display='none'; });
+    favBg.addEventListener('click', ()=>{ favSheet.classList.remove('show'); favBg.style.display='none'; });
+    document.getElementById('btnClearFavs').addEventListener('click', ()=>{ if (confirm('Alle favorieten wissen?')) { setFavs([]); renderFavs(); } });
+    function renderFavs(){
+      const list = document.getElementById('favList'); list.innerHTML = '';
+      const favs = getFavs();
+      if (!favs.length) { list.textContent = 'Nog geen favorieten.'; return; }
+      favs.forEach((f, idx)=>{
+        const d = new Date(f.ts); const li = document.createElement('div'); li.className = 'item';
+        li.innerHTML = `<div class="mono" style="flex:1;"><strong>${f.src}→${f.dst}</strong> • ${d.toLocaleString()}<br>🗣️ ${f.input}<br>✅ ${f.out}</div>`;
+        const actions = document.createElement('div'); actions.style.display='flex'; actions.style.flexDirection='column'; actions.style.gap='6px';
+        const b1 = document.createElement('button'); b1.className='btn inline'; b1.textContent='⬇️ Naar invoer'; b1.onclick=()=>{ inputEl.value=f.input; sourceEl.value=f.src||'auto'; targetEl.value=f.dst||'pt'; favSheet.classList.remove('show'); favBg.style.display='none'; };
+        const b2 = document.createElement('button'); b2.className='btn inline'; b2.textContent='🔗 Kopieer uit'; b2.onclick=()=>copyText(f.out);
+        const b3 = document.createElement('button'); b3.className='btn inline'; b3.textContent='🗑️ Verwijder'; b3.onclick=()=>{ const arr=getFavs(); arr.splice(idx,1); setFavs(arr); renderFavs(); };
+        actions.append(b1,b2,b3); li.appendChild(actions); list.appendChild(li);
+      });
+    }
+
+    const setBg = document.getElementById('setBg');
+    const settings = document.getElementById('settings');
+    document.getElementById('btnSettings').addEventListener('click', ()=>{
+      const s = loadSettings(); document.getElementById('setSrc').value = s.src || 'auto';
+      document.getElementById('setTgt').value = s.tgt || 'pt';
+      document.getElementById('setCarioca').checked = !!s.carioca;
+      setBg.style.display='block'; settings.classList.add('show');
+    });
+    document.getElementById('btnCloseSettings').addEventListener('click', ()=>{ settings.classList.remove('show'); setBg.style.display='none'; });
+    setBg.addEventListener('click', ()=>{ settings.classList.remove('show'); setBg.style.display='none'; });
+    document.getElementById('btnSaveSettings').addEventListener('click', ()=>{
+      const s = { src: document.getElementById('setSrc').value, tgt: document.getElementById('setTgt').value, carioca: document.getElementById('setCarioca').checked };
+      saveSettings(s);
+      sourceEl.value = s.src; targetEl.value = s.tgt; cariocaEl.checked = !!s.carioca;
+      settings.classList.remove('show'); setBg.style.display='none'; statusEl.textContent = 'Instellingen opgeslagen.';
+    });
+
+    function maybeShowInstallTip(){
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (!isStandalone) document.getElementById('installTip').style.display = 'inline-flex';
+    }
+    maybeShowInstallTip();
+
+    (function applySaved(){
+      const s = loadSettings(); if (s.src) sourceEl.value = s.src; if (s.tgt) targetEl.value = s.tgt; if (typeof s.carioca==='boolean') cariocaEl.checked = s.carioca;
+    })();
+
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
+  </script>
+</body>
+</html>
