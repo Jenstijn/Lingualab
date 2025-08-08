@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'lingualab-cache-v6';
+const CACHE_NAME = 'lingualab-cache-v7';
 const ASSETS = [
   './',
   './index.html',
