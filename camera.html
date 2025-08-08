@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LinguaLab — Camera Translate</title>
+  <meta name="theme-color" content="#0b1021">
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{--bg:#0c0e10;--panel:rgba(255,255,255,.08);--panel2:rgba(255,255,255,.12);--text:#e8ecf1;--muted:#a8b0ba;--hair:1px solid rgba(255,255,255,.14)}
+    @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:rgba(255,255,255,.65);--panel2:rgba(255,255,255,.8);--text:#0b1520;--muted:#536070;--hair:1px solid rgba(0,0,0,.08)}}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    header{position:sticky;top:0;z-index:10;backdrop-filter:blur(18px) saturate(130%);background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05));border-bottom:var(--hair);padding-top:env(safe-area-inset-top)}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    h1{margin:0;font-size:22px}
+    .panel{background:var(--panel);border:var(--hair);border-radius:16px;padding:12px;backdrop-filter:blur(18px) saturate(130%);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    select,button,input[type="checkbox"]{font:inherit}
+    button{border:var(--hair);border-radius:12px;padding:10px 12px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));min-height:40px;color:var(--text)}
+    .small{font-size:12px;color:var(--muted)}
+    #stage{position:relative;background:#000;border-radius:14px;overflow:hidden;border:var(--hair);margin-top:12px}
+    video,canvas,#img{max-width:100%;width:100%;display:block}
+    #overlay{position:absolute;inset:0;pointer-events:none}
+    .bbox{position:absolute;border-radius:8px;border:2px solid rgba(96,165,250,.9);background:rgba(96,165,250,.15);pointer-events:auto}
+    .bbox:hover{background:rgba(96,165,250,.25)}
+    #out{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace}
+    .pill{display:inline-flex;gap:6px;align-items:center;border:var(--hair);background:var(--panel2);padding:4px 10px;border-radius:999px}
+    .link{color:#60a5fa;text-decoration:none}
+  </style>
+</head>
+<body>
+<header><div class="wrap"><h1>LinguaLab — Camera Translate</h1><div class="small">Live OCR → vertaal per regel/woord • Tik op highlight • <a class="link" href="train.html">📚 Oefenmodus</a> • <a class="link" href="index.html">↩︎ Terug</a></div></div></header>
+<main class="wrap">
+  <section class="panel">
+    <div class="row">
+      <button id="btnCam">🎥 Open camera</button>
+      <!-- Belangrijk: géén capture attribuut hier, zodat iOS ook de Filmrol toont -->
+      <input id="file" type="file" accept="image/*" style="display:none">
+      <button id="btnPick">🖼 Kies foto</button>
+      <select id="source">
+        <option value="auto">Detecteer bron</option>
+        <option value="nl">Nederlands</option>
+        <option value="en">Engels</option>
+        <option value="pt">Portugees (BR)</option>
+        <option value="es">Spaans</option>
+        <option value="fr">Frans</option>
+        <option value="de">Duits</option>
+      </select>
+      <select id="target">
+        <option value="pt">Portugees (BR)</option>
+        <option value="nl">Nederlands</option>
+        <option value="en">Engels</option>
+        <option value="es">Spaans</option>
+        <option value="fr">Frans</option>
+        <option value="de">Duits</option>
+      </select>
+      <label class="small"><input type="checkbox" id="autoScan" checked> Autoscan</label>
+      <label class="small"><input type="checkbox" id="carioca"> Carioca PT-BR</label>
+    </div>
+    <div id="stage">
+      <video id="video" playsinline muted></video>
+      <img id="img" style="display:none"/>
+      <canvas id="canvas"></canvas>
+      <div id="overlay"></div>
+    </div>
+    <div class="row">
+      <button id="btnScan">🔎 Scan</button>
+      <button id="btnStop">⏸ Pauzeer</button>
+      <span id="status" class="small"></span>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:12px">
+    <div class="row">
+      <span class="pill">📄 Herkend: <span id="meta"></span></span>
+      <button id="btnTranslateAll">↔️ Vertaal alles</button>
+      <button id="btnAddAll">⭐ Voeg alles toe aan oefenen</button>
+    </div>
+    <div id="out" style="margin-top:8px"></div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/tesseract.js@4/dist/tesseract.min.js"></script>
+<script>
+const statusEl = document.getElementById('status');
+const cariocaEl = document.getElementById('carioca');
+const ENDPOINTS=[
+  {name:'LibreTranslate .com',type:'libre',base:'https://libretranslate.com'},
+  {name:'LibreTranslate .de',type:'libre',base:'https://libretranslate.de'},
+  {name:'translate.astian',type:'libre',base:'https://translate.astian.org'},
+  {name:'mymemory',type:'mymemory',base:'https://api.mymemory.translated.net'}
+];
+async function callJSON(url, body){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),12000);
+  try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body),signal:ctrl.signal});
+      if(!r.ok) throw new Error('HTTP '+r.status); const j=await r.json(); if(j.error) throw new Error(j.error); return j;
+  } finally{clearTimeout(t);}
+}
+async function detectLangAuto(q, base, type){
+  if(type==='libre'){try{const d=await callJSON(base+'/detect',{q}); if(Array.isArray(d)&&d.length){return d[0].language||'en';}}catch{}}
+  const t=q.toLowerCase(); if(/[ãõçáéíóúâêô]/u.test(t)||/você|tô|tá|cadê|grana|a gente/u.test(t)) return 'pt';
+  if(/(^|\\b)(het|de|een|ik|jij|wij|jullie|niet)(\\b|$)/u.test(t)) return 'nl'; return 'en';
+}
+function applyCarioca(pt){ return pt.replace(/\\bvocê está\\b/gi,'cê tá').replace(/\\bestá\\b/gi,'tá').replace(/\\bvocê\\b/gi,'cê').replace(/\\bestou\\b/gi,'tô').replace(/\\bpara o\\b/gi,'pro').replace(/\\bpara a\\b/gi,'pra');}
+async function translateProvider(q,src,dst,p){
+  if(p.type==='libre'){ if(src==='auto') src=await detectLangAuto(q,p.base,'libre'); const d=await callJSON(p.base+'/translate',{q,source:src,target:dst,format:'text'}); return d.translatedText||d; }
+  else { if(src==='auto') src=await detectLangAuto(q,p.base,'heur'); const u=p.base+'/get?q='+encodeURIComponent(q)+'&langpair='+src+'|'+dst; const r=await fetch(u); const j=await r.json(); if(j.responseStatus!==200) throw new Error('MyMemory'); return j.responseData?.translatedText||''; }
+}
+async function translateWithChain(q,src,dst){
+  let err=null; for(const p of ENDPOINTS){ try{statusEl.textContent='Vertalen via '+p.name+'…'; const t=await translateProvider(q,src,dst,p); return t;}catch(e){err=e;} }
+  throw err||new Error('Geen provider');
+}
+const FKEY='ll_srs_v1';
+function getDeck(){ try{return JSON.parse(localStorage.getItem(FKEY))||[];}catch{return [];} }
+function setDeck(d){ localStorage.setItem(FKEY, JSON.stringify(d||[])); }
+function addCard(front, back, src, dst){
+  const id = ('id_'+btoa(unescape(encodeURIComponent(front.slice(0,120)+src+dst)))).replace(/=+$/,'');
+  const deck=getDeck(); if(deck.some(c=>c.id===id)) return;
+  deck.push({id,front,back,src,dst,ef:2.5,rep:0,int:0,due:Date.now()}); setDeck(deck);
+}
+const video=document.getElementById('video'), canvas=document.getElementById('canvas'), imgEl=document.getElementById('img'), overlay=document.getElementById('overlay');
+const file=document.getElementById('file'), btnPick=document.getElementById('btnPick'), btnCam=document.getElementById('btnCam'), btnScan=document.getElementById('btnScan'), btnStop=document.getElementById('btnStop');
+const source=document.getElementById('source'), target=document.getElementById('target'), autoScan=document.getElementById('autoScan'), meta=document.getElementById('meta'), out=document.getElementById('out');
+let stream=null, lastOcr=null, scanning=false;
+function clearOverlay(){ overlay.innerHTML=''; }
+function addBox(bb, text){
+  const r=document.createElement('div'); r.className='bbox'; r.style.left=bb.x+'px'; r.style.top=bb.y+'px'; r.style.width=bb.w+'px'; r.style.height=bb.h+'px';
+  r.title=text; r.addEventListener('click', async ()=>{
+    try{
+      const t = await translateWithChain(text, source.value, target.value);
+      const tt = (target.value==='pt' && cariocaEl.checked) ? applyCarioca(t) : t;
+      alert(text+'\\n\\n→ '+tt);
+      addCard(text, tt, source.value==='auto'?'auto':source.value, target.value);
+    }catch(e){ alert('Kon niet vertalen.'); }
+  }, {passive:true});
+  overlay.appendChild(r);
+}
+function scaleBoxes(lines, wRatio, hRatio){
+  return lines.map(l=>({ text:l.text, bbox:{ x:Math.round(l.bbox.x0*wRatio), y:Math.round(l.bbox.y0*hRatio), w:Math.round((l.bbox.x1-l.bbox.x0)*wRatio), h:Math.round((l.bbox.y1-l.bbox.y0)*hRatio) } }));
+}
+async function runOCR(imageData, viewW, viewH){
+  statusEl.textContent='OCR… (eerste keer kan ~10s duren)';
+  const { data } = await Tesseract.recognize(imageData, 'eng+por+nld+spa+fra+deu', { logger:m=>{ if(m.status==='recognizing text') statusEl.textContent='OCR '+Math.round(m.progress*100)+'%'; } });
+  lastOcr=data;
+  const lines=data.lines||[]; meta.textContent=lines.length+' regels, '+(data.words?.length||0)+' woorden'; clearOverlay();
+  if(!lines.length) return;
+  const imgW=data.shape?data.shape[1]:viewW, imgH=data.shape?data.shape[0]:viewH;
+  const wRatio=viewW/imgW, hRatio=viewH/imgH;
+  const scaled = scaleBoxes(lines, wRatio, hRatio);
+  scaled.forEach(l=> addBox(l.bbox, l.text));
+  statusEl.textContent='Klaar.';
+}
+async function grabAndOCR(){
+  if(!scanning) return;
+  const ctx=canvas.getContext('2d');
+  let w,h;
+  if(video.style.display!=='none' && video.videoWidth){
+    w=canvas.width=video.clientWidth; h=canvas.height=video.clientHeight;
+    ctx.drawImage(video,0,0,w,h);
+  } else if(imgEl.style.display!=='none' && imgEl.naturalWidth){
+    w=canvas.width=imgEl.clientWidth; h=canvas.height=imgEl.clientHeight;
+    ctx.drawImage(imgEl,0,0,w,h);
+  } else { return; }
+  await runOCR(canvas, w, h);
+  if(autoScan.checked) setTimeout(grabAndOCR, 1200);
+}
+btnScan.addEventListener('click', ()=>{ scanning=true; grabAndOCR(); });
+btnStop.addEventListener('click', ()=>{ scanning=false; statusEl.textContent='Gepauzeerd.'; });
+btnPick.addEventListener('click', ()=> file.click());
+file.addEventListener('change', ()=>{
+  if(!file.files.length) return; const f=file.files[0]; const url=URL.createObjectURL(f);
+  imgEl.src=url; imgEl.style.display='block'; video.style.display='none'; statusEl.textContent='Afbeelding geladen.'; setTimeout(()=>{ scanning=true; grabAndOCR(); }, 50);
+});
+btnCam.addEventListener('click', async ()=>{
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:'environment'}, audio:false });
+    video.srcObject=stream; await video.play(); video.style.display='block'; imgEl.style.display='none'; scanning=true; grabAndOCR();
+  }catch(e){ alert('Camera-toegang geweigerd of niet beschikbaar. Kies anders een foto.'); }
+});
+
+document.getElementById('btnTranslateAll').addEventListener('click', async ()=>{
+  if(!lastOcr){ alert('Nog niets gescand.'); return; }
+  const text = (lastOcr.text||'').trim(); if(!text) return;
+  try{ let t = await translateWithChain(text, source.value, target.value); if(target.value==='pt' && cariocaEl.checked) t=applyCarioca(t);
+       out.textContent = t; }catch{ out.textContent='Kon niet vertalen.'; }
+});
+document.getElementById('btnAddAll').addEventListener('click', async ()=>{
+  if(!lastOcr){ alert('Nog niets gescand.'); return; }
+  let t = out.textContent.trim();
+  if(!t){ try{ t = await translateWithChain((lastOcr.text||'').trim(), source.value, target.value); }catch{ alert('Geen vertaling.'); return; } }
+  if(target.value==='pt' && cariocaEl.checked) t=applyCarioca(t);
+  addCard((lastOcr.text||'').trim(), t, source.value, target.value);
+  alert('Toegevoegd aan oefenen.');
+});
+</script>
+</body>
+</html>
