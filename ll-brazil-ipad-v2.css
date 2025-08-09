@@ -1,0 +1,144 @@
+
+/* LinguaLab Brazil + iPad Theme v2
+   Usage: <link rel="stylesheet" href="ll-brazil-ipad-v2.css">
+   This file merges: Brazil glass theme + iPad layout/UX tweaks.
+*/
+
+/* ---------- Base palette & tokens ---------- */
+:root{
+  --bg: #0a0f12;
+  --surface: rgba(255,255,255,.08);
+  --surface-2: rgba(255,255,255,.12);
+  --text: #eaf0f6;
+  --muted: #9fb0c0;
+  --hair: 1px solid rgba(255,255,255,.14);
+  --backdrop: blur(20px) saturate(130%);
+  --radius: 16px;
+  --shadow: 0 18px 40px rgba(0,0,0,.35);
+
+  /* Brazil accents */
+  --acc-azul: #0d47a1;   /* Azul Bandeira */
+  --acc-verde: #0f8b2f;  /* Verde Bandeira */
+  --acc-amarelo: #f5b700;/* Amarelo */
+
+  --btn-grad: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06));
+  --focus: 0 0 0 3px color-mix(in oklab, var(--acc-azul) 50%, white 10%);
+}
+
+@media (prefers-color-scheme: light){
+  :root{
+    --bg: #f6f8fb;
+    --surface: rgba(255,255,255,.65);
+    --surface-2: rgba(255,255,255,.85);
+    --text: #0b1520;
+    --muted: #566274;
+    --hair: 1px solid rgba(0,0,0,.08);
+    --shadow: 0 12px 28px rgba(0,0,0,.12);
+  }
+}
+
+/* ---------- Brazil-tinted background ---------- */
+html, body{
+  background:
+    radial-gradient(1200px 700px at -10% -10%, color-mix(in oklab, var(--acc-verde) 22%, transparent 78%), transparent 60%),
+    radial-gradient(900px 600px at 110% 0%, color-mix(in oklab, var(--acc-azul) 24%, transparent 76%), transparent 60%),
+    radial-gradient(1000px 600px at 50% 120%, color-mix(in oklab, var(--acc-amarelo) 18%, transparent 82%), transparent 60%),
+    var(--bg);
+  color: var(--text);
+}
+
+/* ---------- Panels / cards ---------- */
+.panel{
+  background: var(--surface) !important;
+  border: var(--hair) !important;
+  border-radius: var(--radius) !important;
+  backdrop-filter: var(--backdrop) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+/* ---------- Buttons & links ---------- */
+button, .btn, a.btn{
+  border: var(--hair) !important;
+  background: var(--btn-grad) !important;
+  color: var(--text) !important;
+  border-radius: calc(var(--radius) - 4px) !important;
+  transition: transform .06s ease, box-shadow .06s ease, background .2s ease;
+  text-decoration: none;
+}
+button:active, .btn:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}
+button:focus-visible, .btn:focus-visible, a.btn:focus-visible{
+  outline: none;
+  box-shadow: var(--focus);
+}
+a, a.link{ color: color-mix(in oklab, var(--acc-azul) 70%, white 10%) !important; }
+
+/* ---------- Inputs ---------- */
+textarea, select, input[type="text"], input[type="search"]{
+  background: var(--surface-2) !important;
+  border: var(--hair) !important;
+  color: var(--text) !important;
+  border-radius: 12px !important;
+}
+
+/* ---------- Pills (analysis tokens) ---------- */
+.pill{
+  border: 1px solid color-mix(in oklab, var(--acc-azul) 25%, white 5%) !important;
+  background:
+    radial-gradient(80% 60% at 50% 10%, rgba(255,255,255,.16), transparent 70%),
+    var(--surface-2) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.pill.subj{ border-color: color-mix(in oklab, var(--acc-azul) 60%, white 10%) !important; }
+.pill.verb{ border-color: color-mix(in oklab, var(--acc-verde) 60%, white 10%) !important; }
+.pill.clause{ border-color: color-mix(in oklab, var(--acc-amarelo) 60%, white 10%) !important; }
+.pill.prep{ border-color: color-mix(in oklab, rebeccapurple 60%, white 10%) !important; }
+
+/* ---------- Header ---------- */
+header, .ll-nav{
+  backdrop-filter: blur(16px) saturate(130%);
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.20), rgba(0,0,0,.06)),
+    linear-gradient(90deg, color-mix(in oklab, var(--acc-azul) 18%, transparent 82%), transparent 60%);
+  border-bottom: var(--hair);
+}
+.ll-nav .ll-wrap { align-items: center; }
+.ll-nav .ll-actions a { white-space: nowrap; }
+
+/* ---------- Badges ---------- */
+.badge{
+  border: 1px solid color-mix(in oklab, var(--acc-verde) 55%, white 10%) !important;
+  background: var(--surface-2) !important;
+}
+
+/* ---------- iPad optimizations ---------- */
+@media (min-width: 1024px) {
+  .wrap { max-width: 1100px; }
+  .grid { grid-template-columns: 1.25fr 1fr; gap: 20px; }
+  header h1 { font-size: 30px; }
+  h2 { font-size: 22px; }
+  h3 { font-size: 19px; }
+  .panel { padding: 16px 18px; }
+  button.btn, .btn { min-height: 44px; padding: 12px 14px; }
+  textarea { min-height: 180px; }
+  select, input[type="text"], input[type="search"] { min-height: 40px; }
+}
+
+/* Trackpad/mouse polish on iPad */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { box-shadow: 0 0 0 3px rgba(96,165,250,.25) inset; transform: translateY(-1px); }
+  .pill:hover { box-shadow: 0 0 0 2px rgba(0,0,0,.06) inset; }
+}
+
+/* Better tap responsiveness */
+* { touch-action: manipulation; }
+
+/* Optional full-viewport sections (iOS 100vh fix) */
+:root { --vh: 1vh; }
+.fullvh { min-height: calc(var(--vh, 1vh) * 100); }
+
+/* Canvas crispness on tablet */
+canvas { image-rendering: -webkit-optimize-contrast; }
+@media (min-width: 1024px) { canvas { max-height: 260px; } }
