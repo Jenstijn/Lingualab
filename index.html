@@ -118,7 +118,19 @@
   <script src="./srs2.js"></script>
   <script>
     // === Providers (fallback chain) ===
+    const DEEPL_PROXY = "https://deepl-proxy.8p8kxkrcnj.workers.dev";
+
+function normLang(x){
+  if (!x) return "auto";
+  const s = String(x).toLowerCase();
+  if (["auto"].includes(s)) return "auto";
+  if (s.startsWith("nl")) return "NL";
+  if (s.startsWith("en")) return "EN";
+  if (["pt","pt-br","pt_br","ptbr","br"].includes(s)) return "PT-BR";
+  return s.toUpperCase();
+}
     const ENDPOINTS = [
+        { name:'DeepL (Worker)', type:'deepl', base: DEEPL_PROXY },
       { name:'LibreTranslate .com', type:'libre', base:'https://libretranslate.com' },
       { name:'LibreTranslate .de', type:'libre', base:'https://libretranslate.de' },
       { name:'LibreTranslate astian', type:'libre', base:'https://translate.astian.org' },
@@ -180,6 +192,25 @@
       return 'en';
     }
     async function translateProvider(q, src, dst, provider){
+        if (provider.type === 'deepl') {
+    const url = provider.base;
+    const body = {
+      text: q,
+      source_lang: normLang(src),
+      target_lang: normLang(dst)
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('DeepL HTTP ' + res.status);
+    const data = await res.json();
+    if (!data || !data.translations || !data.translations.length) {
+      throw new Error('Geen vertaling ontvangen van DeepL');
+    }
+    return data.translations[0].text;
+        }
       if (provider.type==='libre' || provider.type==='libre-proxy'){
         let source = src;
         if (source==='auto') source = await detectLangAuto(q, provider.base, provider.type);
