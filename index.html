@@ -151,10 +151,45 @@
     const targetEl = document.getElementById('target');
     const cariocaEl = document.getElementById('carioca');
 
+    <script>
+// ==== SYNC SETTINGS ====
+const SYNC_BASE = 'https://lingualab-sync.8p8kxkrcnj.workers.dev';
+
+// simpele “account” per gebruiker
+function getUID(){
+  let id = localStorage.getItem('ll_uid');
+  if (!id) { id = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ll_uid', id); }
+  return id;
+}
+async function syncSave(key, value){
+  try{
+    const res = await fetch(`${SYNC_BASE}/save`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uid: getUID(), key, value })
+    });
+    return res.ok;
+  } catch { return false; }
+}
+async function syncLoad(key){
+  try{
+    const url = `${SYNC_BASE}/get?uid=${encodeURIComponent(getUID())}&key=${encodeURIComponent(key)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j?.value ?? null;
+  } catch { return null; }
+}
+</script>
+
     // Local favorites (naast SRS)
     const FKEY = 'll_favs_v1';
     function getFavs(){ try { return JSON.parse(localStorage.getItem(FKEY)) || []; } catch { return []; } }
-    function setFavs(f){ localStorage.setItem(FKEY, JSON.stringify(f||[])); }
+function setFavs(f){
+  localStorage.setItem(FKEY, JSON.stringify(f||[]));
+  // sync naar Cloudflare KV
+  syncSave(FKEY, f || []);
+}
 
     async function copyText(text){
       try {
@@ -433,6 +468,14 @@
     maybeShowInstallTip();
 
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
+
+        // === Sync favorites bij opstarten ===
+(async () => {
+  const remoteFavs = await syncLoad(FKEY);
+  if (remoteFavs && Array.isArray(remoteFavs)) {
+    localStorage.setItem(FKEY, JSON.stringify(remoteFavs));
+  }
+})();
   </script>
 </body>
 </html>
