@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'lingualab-cache-v16';
+const CACHE_NAME = 'lingualab-cache-v17';
 
 const ASSETS = [
   './',
@@ -16,6 +16,7 @@ const ASSETS = [
   './ll-typography.css',
   './ll-header.html',
 './ll-nav.js',
+  './ll-brazil-ipad-v2.css',
 ];
 
 self.addEventListener('install', (event) => {
