@@ -85,11 +85,12 @@
 <script>
 const statusEl = document.getElementById('status');
 const cariocaEl = document.getElementById('carioca');
-const ENDPOINTS=[
-  {name:'LibreTranslate .com',type:'libre',base:'https://libretranslate.com'},
-  {name:'LibreTranslate .de',type:'libre',base:'https://libretranslate.de'},
-  {name:'translate.astian',type:'libre',base:'https://translate.astian.org'},
-  {name:'mymemory',type:'mymemory',base:'https://api.mymemory.translated.net'}
+const ENDPOINTS = [
+  { name:'DeepL (Cloudflare)', type:'deepl', base: DEEPL_PROXY },
+  { name:'LibreTranslate .com', type:'libre', base:'https://libretranslate.com' },
+  { name:'LibreTranslate .de',  type:'libre', base:'https://libretranslate.de' },
+  { name:'translate.astian',    type:'libre', base:'https://translate.astian.org' },
+  { name:'MyMemory',            type:'mymemory', base:'https://api.mymemory.translated.net' }
 ];
 async function callJSON(url, body){
   const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),12000);
@@ -103,9 +104,34 @@ async function detectLangAuto(q, base, type){
   if(/(^|\\b)(het|de|een|ik|jij|wij|jullie|niet)(\\b|$)/u.test(t)) return 'nl'; return 'en';
 }
 function applyCarioca(pt){ return pt.replace(/\\bvocê está\\b/gi,'cê tá').replace(/\\bestá\\b/gi,'tá').replace(/\\bvocê\\b/gi,'cê').replace(/\\bestou\\b/gi,'tô').replace(/\\bpara o\\b/gi,'pro').replace(/\\bpara a\\b/gi,'pra');}
-async function translateProvider(q,src,dst,p){
-  if(p.type==='libre'){ if(src==='auto') src=await detectLangAuto(q,p.base,'libre'); const d=await callJSON(p.base+'/translate',{q,source:src,target:dst,format:'text'}); return d.translatedText||d; }
-  else { if(src==='auto') src=await detectLangAuto(q,p.base,'heur'); const u=p.base+'/get?q='+encodeURIComponent(q)+'&langpair='+src+'|'+dst; const r=await fetch(u); const j=await r.json(); if(j.responseStatus!==200) throw new Error('MyMemory'); return j.responseData?.translatedText||''; }
+async function translateProvider(q, src, dst, p){
+  if (p.type === 'deepl'){
+    const body = { text: q, source_lang: normLang(src), target_lang: normLang(dst) };
+    const r = await fetch(p.base, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('DeepL HTTP ' + r.status);
+    const j = await r.json();
+    // Accepteer beide vormen: {text} of {translations:[{text}]}
+    const out = j?.text || j?.translations?.[0]?.text;
+    if (!out) throw new Error('Geen vertaling van DeepL');
+    return out;
+  }
+
+  if (p.type === 'libre'){
+    if (src === 'auto') src = await detectLangAuto(q, p.base, 'libre');
+    const d = await callJSON(p.base + '/translate', { q, source:src, target:dst, format:'text' });
+    return d.translatedText || d;
+  }
+
+  // MyMemory
+  if (src === 'auto') src = await detectLangAuto(q, p.base, 'heur');
+  const u = p.base + '/get?q=' + encodeURIComponent(q) + '&langpair=' + src + '|' + dst;
+  const r = await fetch(u); const j = await r.json();
+  if (j?.responseStatus !== 200) throw new Error('MyMemory ' + (j?.responseStatus||'err'));
+  return j?.responseData?.translatedText || '';
 }
 async function translateWithChain(q,src,dst){
   let err=null; for(const p of ENDPOINTS){ try{statusEl.textContent='Vertalen via '+p.name+'…'; const t=await translateProvider(q,src,dst,p); return t;}catch(e){err=e;} }
