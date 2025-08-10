@@ -318,9 +318,9 @@ async function syncNowFull(){
     if (codeEl) codeEl.placeholder = uid;
     if (hint) hint.textContent = 'Gebruik dezelfde code op je andere devices.';
     const btnCopy = document.getElementById('btnCopyCode');
-    btnCopy?.addEventListener('click', ()=>{ try{ navigator.clipboard.writeText(getUID()); alert('Code gekopieerd.'); }catch{} });
+    btnCopy.addEventListener('click', ()=>{ try{ navigator.clipboard.writeText(getUID()); alert('Code gekopieerd.'); }catch{} });
     const btnSet = document.getElementById('btnSetCode');
-    btnSet?.addEventListener('click', async ()=>{
+    btnSet.addEventListener('click', async ()=>{
       const val = (codeEl?.value||'').trim(); if (!val){ alert('Plak eerst je code.'); return; }
       if (!setUID(val)) return;
       await syncNowFull();
@@ -328,8 +328,8 @@ async function syncNowFull(){
     });
     const btnNow = document.getElementById('btnSyncNow');
     const btnLegacy = document.getElementById('btnSync');
-    btnNow?.addEventListener('click', syncNowFull);
-    btnLegacy?.addEventListener('click', syncNowFull);
+    btnNow.addEventListener('click', syncNowFull);
+    btnLegacy.addEventListener('click', syncNowFull);
     // Also auto-pull when tab becomes visible
     document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) syncNowFull(); });
     // And periodic light sync (every 45s)

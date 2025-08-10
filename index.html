@@ -94,13 +94,6 @@
           <button class="btn" id="btnViewFavs" aria-haspopup="dialog">⭐ Bekijk favorieten</button>
           <button class="btn" id="btnViewCards" aria-haspopup="dialog">📚 Bekijk kaarten</button>
         </div>
-        <div class="row small" style="margin-top:6px">
-          <button class="btn" id="btnSyncNowHome">⟳ Sync nu</button>
-          <button class="btn" id="btnSetCodeHome">🔐 Zet Sync-code</button>
-          <span id="syncStatusHome" class="small"></span>
-        </div>
-        
-
         <div id="analysis" class="tags" style="margin-top:10px;"></div>
         <div id="notes" class="small" style="margin-top:8px;"></div>
       </section>
@@ -667,12 +660,12 @@ document.addEventListener('DOMContentLoaded', function(){
     async function pullDeck(){ try{ const key=(function(){ for (var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(/^ll_srs_/i.test(k)) return k; } return 'll_srs_v1'; })(); const r = await syncLoad(key); if (r){ localStorage.setItem(key, r); } }catch{} }
 
     const status = document.getElementById('syncStatusHome');
-    document.getElementById('btnSyncNowHome')?.addEventListener('click', async ()=>{
+    document.getElementById('btnSyncNowHome').addEventListener('click', async ()=>{
       status.textContent = 'Synchroniseren…';
       await pushFavs(); await pushDeck(); await pullFavs(); await pullDeck();
       status.textContent = 'Klaar.';
     });
-    document.getElementById('btnSetCodeHome')?.addEventListener('click', async ()=>{
+    document.getElementById('btnSetCodeHome').addEventListener('click', async ()=>{
       const val = prompt('Plak je Sync-code (zelfde op al je apparaten):', localStorage.getItem('ll_uid')||'');
       if (!val) return;
       if (!setUID(val)) return;

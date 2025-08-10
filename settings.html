@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LinguaLab — Instellingen</title>
+  <meta name="theme-color" content="#0b1021">
+  <link rel="stylesheet" href="./ll-brazil-ipad-v2.css">
+  <style>
+    .wrap{max-width:920px;margin:0 auto;padding:16px}
+    .panel{background:var(--panel);border:var(--hair);border-radius:16px;padding:14px;backdrop-filter:saturate(130%);box-shadow:0 10px 30px rgba(0,0,0,.25);margin-top:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn{border:var(--hair);border-radius:12px;padding:10px 12px;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));min-height:42px;color:var(--text);cursor:pointer;text-decoration:none}
+    .small{font-size:12px;color:var(--muted)}
+    input[type="text"]{border:var(--hair);border-radius:10px;padding:10px;background:var(--panel2);color:var(--text);min-width:260px}
+  </style>
+</head>
+<body>
+<div id="ll-header"></div>
+<script src="./ll-nav.js" defer></script>
+
+<main class="wrap">
+  <section class="panel">
+    <h3>Cloud-sync</h3>
+    <div class="row">
+      <label>Sync-code:
+        <input type="text" id="code" placeholder="plak hier dezelfde code op elk device">
+      </label>
+      <button class="btn" id="btnUse">Zet code</button>
+      <button class="btn" id="btnCopy">Kopieer mijn code</button>
+      <button class="btn" id="btnSyncNow">Nu synchroniseren</button>
+    </div>
+    <div id="syncStatus" class="small" style="margin-top:6px"></div>
+    <p class="small" style="margin-top:8px">Gebruik <strong>dezelfde code</strong> op je Mac, iPhone en iPad. Daarna blijven favorieten en SRS-kaarten gelijk.</p>
+  </section>
+
+  <section class="panel">
+    <h3>Reset</h3>
+    <div class="row">
+      <button class="btn" id="btnResetSRS">⚠️ Reset SRS</button>
+      <button class="btn" id="btnResetFavs">⚠️ Reset favorieten</button>
+    </div>
+    <div class="small" style="margin-top:6px">Let op: dit verwijdert lokale data. SRS-reset leegt ook de clouddeck.</div>
+  </section>
+</main>
+
+<script>
+// Kleinste gemene deler (geen optional chaining)
+(function(){
+  function $(id){ return document.getElementById(id); }
+
+  // === sync endpoints ===
+  var SYNC_BASE = 'https://lingualab-sync.8p8kxkrcnj.workers.dev';
+  function getUID(){
+    var id = localStorage.getItem('ll_uid');
+    if (!id){ id = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ll_uid', id); }
+    return id;
+  }
+  function setUID(newId){
+    newId = (newId||'').trim();
+    if (!/^[A-Za-z0-9_-]{6,60}$/.test(newId)) { alert('Ongeldige code. Alleen letters/cijfers/_- (min 6).'); return false; }
+    localStorage.setItem('ll_uid', newId);
+    return true;
+  }
+  async function syncSave(key, data){
+    try{
+      var url = SYNC_BASE + '/set?uid=' + encodeURIComponent(getUID()) + '&key=' + encodeURIComponent(key);
+      await fetch(url, {method:'POST', body:data, headers:{'content-type':'application/json'}});
+    }catch(e){}
+  }
+  async function syncLoad(key){
+    try{
+      var url = SYNC_BASE + '/get?uid=' + encodeURIComponent(getUID()) + '&key=' + encodeURIComponent(key);
+      var res = await fetch(url);
+      if (!res.ok) return null;
+      var j = await res.json();
+      return j && j.value != null ? j.value : null;
+    }catch(e){ return null; }
+  }
+
+  // === ops ===
+  var FKEY = 'll_favs_v1';
+  var SRS_KEY = (function(){ for (var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if (/^ll_srs_/i.test(k)) return k; } return 'll_srs_v1'; })();
+
+  function getFavs(){ try{ return JSON.parse(localStorage.getItem(FKEY)||'[]'); }catch(e){ return []; } }
+  function setFavs(f){ try{ localStorage.setItem(FKEY, JSON.stringify(f||[])); }catch(e){} }
+
+  async function pushFavs(){ try{ await syncSave(FKEY, localStorage.getItem(FKEY)||'[]'); }catch(e){} }
+  async function pullFavsMerge(){
+    try{
+      var r = await syncLoad(FKEY); if (!r) return;
+      var a = JSON.parse(r||'[]'); if (!Array.isArray(a)) return;
+      var b = getFavs();
+      var map = {}, i;
+      function k(it){ return (it.input||it.inp||'')+'|'+(it.out||'')+'|'+(it.src||'')+'>'+ (it.dst||''); }
+      for(i=0;i<b.length;i++){ map[k(b[i])] = b[i]; }
+      for(i=0;i<a.length;i++){ var it=a[i], kk=k(it); if (!map[kk] || (it.ts||0)>(map[kk].ts||0)) map[kk]=it; }
+      var merged = Object.keys(map).map(function(x){return map[x];}).sort(function(x,y){return (y.ts||0)-(x.ts||0);}).slice(0,200);
+      setFavs(merged);
+    }catch(e){}
+  }
+
+  async function pushDeck(){
+    try{
+      if (window.LL_SRS && typeof LL_SRS.listAll==='function'){
+        var deck = await LL_SRS.listAll();
+        await syncSave(SRS_KEY, JSON.stringify(deck||[]));
+      } else {
+        await syncSave(SRS_KEY, localStorage.getItem(SRS_KEY)||'[]');
+      }
+    }catch(e){}
+  }
+  async function pullDeckReplace(){
+    try{
+      var str = await syncLoad(SRS_KEY); if (!str) return;
+      var deck = JSON.parse(str||'[]'); if (!Array.isArray(deck)) return;
+      try{ indexedDB.deleteDatabase('lingualab'); }catch(e){}
+      if (window.LL_SRS && typeof LL_SRS.update==='function'){
+        for (var i=0;i<deck.length;i++){ try{ await LL_SRS.update(deck[i]); }catch(e){} }
+      }
+      try{ localStorage.setItem(SRS_KEY, JSON.stringify(deck||[])); }catch(e){}
+    }catch(e){}
+  }
+  async function syncNow(){
+    $('syncStatus').textContent = 'Synchroniseren…';
+    await pushFavs(); await pushDeck();
+    await pullFavsMerge(); await pullDeckReplace();
+    $('syncStatus').textContent = 'Klaar.';
+  }
+
+  // UI binds
+  document.addEventListener('DOMContentLoaded', function(){
+    $('code').placeholder = getUID();
+    $('btnUse').addEventListener('click', async function(){
+      var val = $('code').value.trim(); if (!val){ alert('Plak eerst je code.'); return; }
+      if (!setUID(val)) return;
+      await syncNow(); alert('Code ingesteld en gesynchroniseerd.');
+    });
+    $('btnCopy').addEventListener('click', function(){
+      try{ navigator.clipboard.writeText(getUID()); alert('Code gekopieerd.'); }catch(e){}
+    });
+    $('btnSyncNow').addEventListener('click', syncNow);
+    $('btnResetSRS').addEventListener('click', async function(){
+      if (!confirm('Zeker weten? SRS wordt lokaal én in de cloud leeggemaakt.')) return;
+      try{ indexedDB.deleteDatabase('lingualab'); }catch(e){}
+      try{ localStorage.removeItem(SRS_KEY); }catch(e){}
+      try{ await syncSave(SRS_KEY, '[]'); }catch(e){}
+      alert('SRS gereset.');
+    });
+    $('btnResetFavs').addEventListener('click', async function(){
+      if (!confirm('Zeker weten? Favorieten lokaal én in de cloud wissen.')) return;
+      try{ localStorage.setItem(FKEY, '[]'); }catch(e){}
+      try{ await syncSave(FKEY, '[]'); }catch(e){}
+      alert('Favorieten gereset.');
+    });
+  });
+})();
+</script>
+</body>
+</html>
