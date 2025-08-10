@@ -32,6 +32,7 @@
     <div class="row">
       <div><span id="due" class="pill">⏰ 0 due</span> <span id="total" class="pill">📚 0 kaarten</span></div>
       <button class="btn" id="startDue">Start reviews</button>
+      <button class="btn" id="btnReset">⚠️ Reset SRS</button>
       <button class="btn" id="btnSync">⟳ Sync & herlaad</button>
       <span id="syncStatus" class="small"></span>
     </div>
@@ -229,6 +230,16 @@ $('btnSync').addEventListener('click', async ()=>{
 });
 
 // INIT
+// Reset SRS: clears IndexedDB + localStorage + Cloudflare KV
+document.getElementById('btnReset').addEventListener('click', async ()=>{
+  if (!confirm('Weet je zeker? Dit verwijdert alle SRS-kaarten op dit apparaat én in de cloud.')) return;
+  try { indexedDB.deleteDatabase('lingualab'); } catch(e){}
+  try { localStorage.removeItem(SRS_KEY); } catch(e){}
+  try { await syncSave(SRS_KEY, '[]'); } catch(e){}
+  alert('SRS is leeggemaakt. De pagina wordt herladen.');
+  location.reload();
+});
+
 (async () => {
   await pullFromKV();
   await LL_SRS.migrate().catch(()=>{});
