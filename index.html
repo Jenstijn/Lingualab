@@ -178,7 +178,7 @@
         const res = await fetch(`${SYNC_BASE}/get?uid=${encodeURIComponent(getUID())}&key=${encodeURIComponent(key)}`);
         if (!res.ok) return null;
         const j = await res.json();
-        return j?.value ?? null;
+        return (j && j.value != null ? j.value : null);
       }catch{ return null; }
     }
 
@@ -261,7 +261,7 @@
         const res = await fetch(provider.base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!res.ok) throw new Error('DeepL HTTP ' + res.status);
         const j = await res.json();
-        const text = j?.text || (j?.translations && j.translations[0]?.text) || '';
+        const text = (j && j.text) || ((j && j.translations && j.translations[0] && j.translations[0].text)) || '';
         if (!text) throw new Error('Geen vertaling ontvangen van DeepL');
         return text;
       }
@@ -275,8 +275,8 @@
         if (source==='auto') source = await detectLangAuto(q, provider.base, 'heuristic');
         const url = provider.base + '/get?q=' + encodeURIComponent(q) + '&langpair=' + source + '|' + dst;
         const r = await fetch(url); const j = await r.json();
-        if (j?.responseStatus !== 200) throw new Error('MyMemory ' + (j?.responseStatus||'err'));
-        return j?.responseData?.translatedText || '';
+        if ((j && j.responseStatus) !== 200) throw new Error('MyMemory ' + ((j && j.responseStatus)||'err'));
+        return ((j && j.responseData && j.responseData.translatedText) ? j.responseData.translatedText : '');
       }
     }
     async function translateWithChain(q, src, dst){
@@ -433,7 +433,7 @@
         statusEl.textContent = 'Klaar.';
       } catch (err) {
         statusEl.textContent = 'Kon niet vertalen.';
-        outputEl.textContent = 'Fout: ' + (err?.message || 'onbekend');
+        outputEl.textContent = 'Fout: ' + ((err && err.message) || 'onbekend');
       }
     });
 
@@ -631,51 +631,6 @@
     })();
 </script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  try{
-    function setUID(newId){
-      newId = (newId||'').trim();
-      if (!/^[A-Za-z0-9_-]{6,60}$/.test(newId)) { alert('Ongeldige code. Gebruik alleen letters/cijfers/_- (min 6).'); return false; }
-      localStorage.setItem('ll_uid', newId);
-      return true;
-    }
-    async function syncSave(key, data){
-      const uid = localStorage.getItem('ll_uid') || (function(){ let id = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ll_uid', id); return id; })();
-      const url = (typeof SYNC_BASE!=='undefined'? SYNC_BASE : 'https://lingualab-sync.8p8kxkrcnj.workers.dev') + '/set?uid=' + encodeURIComponent(uid) + '&key=' + encodeURIComponent(key);
-      await fetch(url, {method:'POST', body:data, headers:{'content-type':'application/json'}}).catch(()=>{});
-    }
-    async function syncLoad(key){
-      const uid = localStorage.getItem('ll_uid') || '';
-      if (!uid) return null;
-      const url = (typeof SYNC_BASE!=='undefined'? SYNC_BASE : 'https://lingualab-sync.8p8kxkrcnj.workers.dev') + '/get?uid=' + encodeURIComponent(uid) + '&key=' + encodeURIComponent(key);
-      const res = await fetch(url).catch(()=>null);
-      if (!res || !res.ok) return null;
-      const j = await res.json();
-      return j?.value ?? null;
-    }
-    async function pushFavs(){ try{ const data = localStorage.getItem('ll_favs_v1') || '[]'; await syncSave('ll_favs_v1', data); }catch{} }
-    async function pushDeck(){ try{ const data = localStorage.getItem((function(){ for (var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(/^ll_srs_/i.test(k)) return k; } return 'll_srs_v1'; })()) || '[]'; await syncSave((function(){ for (var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(/^ll_srs_/i.test(k)) return k; } return 'll_srs_v1'; })(), data); }catch{} }
-    async function pullFavs(){ try{ const r = await syncLoad('ll_favs_v1'); if (r){ localStorage.setItem('ll_favs_v1', r); } }catch{} }
-    async function pullDeck(){ try{ const key=(function(){ for (var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(/^ll_srs_/i.test(k)) return k; } return 'll_srs_v1'; })(); const r = await syncLoad(key); if (r){ localStorage.setItem(key, r); } }catch{} }
 
-    const status = document.getElementById('syncStatusHome');
-    document.getElementById('btnSyncNowHome').addEventListener('click', async ()=>{
-      status.textContent = 'Synchroniseren…';
-      await pushFavs(); await pushDeck(); await pullFavs(); await pullDeck();
-      status.textContent = 'Klaar.';
-    });
-    document.getElementById('btnSetCodeHome').addEventListener('click', async ()=>{
-      const val = prompt('Plak je Sync-code (zelfde op al je apparaten):', localStorage.getItem('ll_uid')||'');
-      if (!val) return;
-      if (!setUID(val)) return;
-      await pullFavs(); await pullDeck();
-      alert('Sync-code ingesteld. Gegevens opgehaald.');
-    });
-    // auto-pull when visible
-    document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) document.getElementById('btnSyncNowHome')?.click(); });
-  }catch(e){ console.error(e); }
-});
-</script>
 </body>
 </html>

@@ -87,7 +87,7 @@
 
   // SM-2 simplified
   function schedule(card, q){
-    let EF = card.ef ?? 2.5, I = card.int ?? 0, R = card.rep ?? 0;
+    let EF = ((card.ef)!=null?(card.ef):2.5), I = ((card.int)!=null?(card.int):0), R = ((card.rep)!=null?(card.rep):0);
     const now = Date.now();
     if (q < 3) { R = 0; I = 1; }
     else {
