@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LinguaLab — Oefenmodus SRS 2.0</title>
+  <meta name="theme-color" content="#0b1021">
+  <link rel="stylesheet" href="./ll-brazil-ipad-v2.css">
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{--bg:#0c0e10;--panel:rgba(255,255,255,.08);--panel2:rgba(255,255,255,.12);--text:#e8ecf1;--muted:#a8b0ba;--hair:1px solid rgba(255,255,255,.14)}
+    @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:rgba(255,255,255,.65);--panel2:rgba(255,255,255,.8);--text:#0b1520;--muted:#536070;--hair:1px solid rgba(0,0,0,.08)}}
+    header{position:sticky;top:0;z-index:10;backdrop-filter:blur(18px) saturate(130%);background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05));border-bottom:var(--hair);padding-top:env(safe-area-inset-top)}
+    .wrap{max-width:820px;margin:0 auto;padding:16px}
+    h1{margin:0;font-size:22px}
+    .panel{background:var(--panel);border:var(--hair);border-radius:16px;padding:14px;backdrop-filter:blur(18px) saturate(130%);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .small{font-size:12px;color:var(--muted)}
+    .card{background:var(--panel2);border:var(--hair);border-radius:14px;padding:16px;margin-top:10px;min-height:140px}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    button,input{font:inherit}
+    input[type=text]{width:100%;border:var(--hair);border-radius:12px;padding:12px;background:var(--panel);color:var(--text)}
+    .badge{display:inline-flex;gap:6px;align-items:center;border:var(--hair);border-radius:999px;padding:6px 10px;background:var(--panel2)}
+  </style>
+</head>
+<body>
+<div id="ll-header"></div>
+<script src="./ll-nav.js" defer></script>
+<main class="wrap">
+  <section class="panel">
+    <div class="row">
+      <span id="stats" class="small"></span>
+      <label class="small">Oefenvorm: 
+        <select id="mode">
+          <option value="type">Typen</option>
+          <option value="cloze">Cloze</option>
+        </select>
+      </label>
+    </div>
+    <div id="card" class="card">
+      <div id="front" class="mono"></div>
+      <div id="task" class="mono" style="margin-top:8px"></div>
+      <input id="answer" type="text" placeholder="Typ je antwoord…" autocomplete="off" autocapitalize="none">
+      <div id="feedback" class="small" style="margin-top:6px"></div>
+    </div>
+    <div class="row">
+      <button id="check">Check</button>
+      <div style="flex:1"></div>
+      <span class="badge">Sneltoetsen: Enter=Check, 1–5=Score</span>
+    </div>
+    <div class="row">
+      <button data-q="1">1</button>
+      <button data-q="2">2</button>
+      <button data-q="3">3</button>
+      <button data-q="4">4</button>
+      <button data-q="5">5</button>
+    </div>
+  </section>
+</main>
+
+<script src="./srs2.js"></script>
+<script>
+/* === SYNC helpers === */
+const SYNC_BASE = 'https://lingualab-sync.8p8kxkrcnj.workers.dev';
+function getUID(){
+  let id = localStorage.getItem('ll_uid');
+  if (!id) { id = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ll_uid', id); }
+  return id;
+}
+async function syncSave(key, value){
+  try{
+    const payload = typeof value === 'string' ? value : JSON.stringify(value);
+    await fetch(`${SYNC_BASE}/save`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid:getUID(), key, value:payload }) });
+    return true;
+  }catch{ return false; }
+}
+const SRS_KEY = (() => {
+  for (let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if (/^ll_srs_/i.test(k)) return k;
+  }
+  return 'll_srs_v1';
+})();
+async function pushDeckToKV(){
+  try{
+    if (window.LL_SRS?.export) {
+      const deck = await LL_SRS.export();
+      await syncSave(SRS_KEY, deck);
+    } else {
+      const raw = localStorage.getItem(SRS_KEY) || '[]';
+      await syncSave(SRS_KEY, raw);
+    }
+  }catch{}
+}
+
+/* === Oefenlogica === */
+let queue=[], current=null, correct='';
+const stats = document.getElementById('stats');
+const front = document.getElementById('front');
+const task = document.getElementById('task');
+const ans = document.getElementById('answer');
+const fb  = document.getElementById('feedback');
+const modeSel = document.getElementById('mode');
+
+function urlParams(){ const p=new URLSearchParams(location.search); return Object.fromEntries(p.entries()); }
+
+async function loadQueue(){
+  queue = await LL_SRS.due(1000);
+  stats.textContent = 'Due: '+queue.length+' • Totaal: '+await LL_SRS.count();
+}
+function toCloze(s){
+  const words = s.split(/\s+/);
+  if (words.length < 2) return {question:s, answer:s};
+  const i = Math.max(1, Math.floor(Math.random()*(words.length-1)));
+  const hidden = words[i];
+  words[i] = '____';
+  return {question: words.join(' '), answer: hidden};
+}
+function prepare(card){
+  current = card; fb.textContent='';
+  front.textContent = (card.src||'')+' → '+(card.dst||'')+'\n\n'+(card.front||'');
+  const mode = modeSel.value;
+  if (mode==='cloze'){
+    const {question, answer} = toCloze(card.back||'');
+    task.textContent = question;
+    correct = answer;
+  } else {
+    task.textContent = '';
+    correct = card.back||'';
+  }
+  ans.value=''; ans.focus();
+}
+function scoreText(user, gold){
+  const d = LL_SRS.util.dist(user, gold);
+  const n = LL_SRS.util.normalize(gold).length||1;
+  const ratio = 1 - (d/n);
+  const pct = Math.max(0, Math.round(ratio*100));
+  return {d, pct, ok: pct>=85};
+}
+document.getElementById('check').addEventListener('click', ()=>{
+  const s = scoreText(ans.value, correct);
+  fb.textContent = `Score: ${s.pct}% — goed antwoord: ${correct}`;
+});
+document.querySelectorAll('button[data-q]').forEach(b=> b.addEventListener('click', async ()=>{
+  if (!current) return;
+  const q = parseInt(b.dataset.q,10);
+  await LL_SRS.grade(current.id, q);
+  await pushDeckToKV();   // sync na iedere beoordeling
+  next();
+}));
+
+function next(){
+  if (queue.length===0){ front.textContent='🎉 Klaar!'; task.textContent=''; ans.disabled=true; fb.textContent=''; return; }
+  prepare(queue.shift());
+}
+
+window.addEventListener('keydown', (e)=>{
+  if (e.key==='Enter') document.getElementById('check').click();
+  if (/^[1-5]$/.test(e.key)){ const b=document.querySelector(`button[data-q="${e.key}"]`); if (b) b.click(); }
+});
+
+(async function init(){
+  try{ await LL_SRS.migrate(); }catch{}
+  await loadQueue();
+  if (queue.length===0){ front.textContent='Geen due kaarten. Voeg nieuwe toe via Vandaag.'; return; }
+  next();
+})(); 
+</script>
+</body>
+</html>
