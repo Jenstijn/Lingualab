@@ -32,10 +32,17 @@
     <div class="row">
       <div><span id="due" class="pill">⏰ 0 due</span> <span id="total" class="pill">📚 0 kaarten</span></div>
       <button class="btn" id="startDue">Start reviews</button>
-      <button class="btn" id="btnReset">⚠️ Reset SRS</button>
       <button class="btn" id="btnSync">⟳ Sync & herlaad</button>
       <span id="syncStatus" class="small"></span>
     </div>
+      <div class="row small" id="syncUI" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+        <label>Sync-code: <input id="syncCode" class="btn" style="min-width:240px" placeholder="plak code hier"></label>
+        <button class="btn" id="btnCopyCode" title="Kopieer jouw code">Kopieer code</button>
+        <button class="btn" id="btnSetCode" title="Gebruik deze code op dit device">Zet code</button>
+        <button class="btn" id="btnSyncNow" title="Push & pull">Nu synchroniseren</button>
+        <span id="syncHint" class="small"></span>
+      </div>
+    
   </section>
 
   <section class="panel">
@@ -230,20 +237,104 @@ $('btnSync').addEventListener('click', async ()=>{
 });
 
 // INIT
-// Reset SRS: clears IndexedDB + localStorage + Cloudflare KV
-document.getElementById('btnReset').addEventListener('click', async ()=>{
-  if (!confirm('Weet je zeker? Dit verwijdert alle SRS-kaarten op dit apparaat én in de cloud.')) return;
-  try { indexedDB.deleteDatabase('lingualab'); } catch(e){}
-  try { localStorage.removeItem(SRS_KEY); } catch(e){}
-  try { await syncSave(SRS_KEY, '[]'); } catch(e){}
-  alert('SRS is leeggemaakt. De pagina wordt herladen.');
-  location.reload();
-});
-
 (async () => {
   await pullFromKV();
   await LL_SRS.migrate().catch(()=>{});
   await refreshCounts();
+})();
+
+
+// === Sync helpers (deck + favs) ===
+function setUID(newId){
+  newId = (newId||'').trim();
+  if (!/^[A-Za-z0-9_-]{6,60}$/.test(newId)) { alert('Ongeldige code. Gebruik alleen letters/cijfers/_- (min 6).'); return false; }
+  localStorage.setItem('ll_uid', newId);
+  return true;
+}
+function getFavsLocal(){ try { return JSON.parse(localStorage.getItem(FKEY) || '[]'); } catch { return []; } }
+function setFavsLocal(f){ try { localStorage.setItem(FKEY, JSON.stringify(f||[])); } catch{} }
+async function pushFavsToKV(){
+  try{ const data = localStorage.getItem(FKEY) || '[]'; await syncSave(FKEY, data); }catch{}
+}
+async function pullFavsFromKVAndMerge(){
+  try{
+    const remote = await syncLoad(FKEY);
+    if (!remote) return;
+    const r = JSON.parse(remote||'[]'); if (!Array.isArray(r)) return;
+    const l = getFavsLocal(); const map = new Map();
+    function keyOf(x){ return (x.input||x.inp||'')+'|'+(x.out||'')+'|'+(x.src||'')+'>'+ (x.dst||''); }
+    [...l, ...r].forEach(it=>{
+      const k = keyOf(it); const old = map.get(k);
+      if (!old || (it.ts||0) > (old.ts||0)) map.set(k, it);
+    });
+    const merged = Array.from(map.values()).sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,200);
+    setFavsLocal(merged);
+  }catch{}
+}
+async function pushDeckToKV_All(){
+  try{
+    if (window.LL_SRS && typeof LL_SRS.listAll==='function'){
+      const deck = await LL_SRS.listAll();
+      await syncSave(SRS_KEY, JSON.stringify(deck||[]));
+    } else {
+      const raw = localStorage.getItem(SRS_KEY) || '[]';
+      await syncSave(SRS_KEY, raw);
+    }
+  }catch{}
+}
+async function pullDeckFromKV_Replace(){
+  try{
+    const deckStr = await syncLoad(SRS_KEY);
+    if (!deckStr) return;
+    const deck = JSON.parse(deckStr||'[]'); if (!Array.isArray(deck)) return;
+    // Replace local IndexedDB with cloud deck
+    try{ indexedDB.deleteDatabase('lingualab'); }catch{}
+    try{
+      // Recreate via LL_SRS.add/update
+      if (window.LL_SRS){
+        for (const c of deck){
+          // If card has full fields, write directly via update; else reconstruct via add
+          if (c && c.id && typeof LL_SRS.update==='function') await LL_SRS.update(c);
+        }
+      }
+    }catch{}
+    // Mirror to localStorage too
+    try{ localStorage.setItem(SRS_KEY, JSON.stringify(deck||[])); }catch{}
+  }catch{}
+}
+async function syncNowFull(){
+  // push local first, then merge/pull from cloud
+  await pushFavsToKV();
+  await pushDeckToKV_All();
+  await pullFavsFromKVAndMerge();
+  await pullDeckFromKV_Replace();
+  try{ document.getElementById('syncStatus').textContent = 'Gesynchroniseerd.'; }catch{}
+}
+(function initSyncUI(){
+  try{
+    const codeEl = document.getElementById('syncCode');
+    const hint = document.getElementById('syncHint');
+    const uid = getUID();
+    if (codeEl) codeEl.placeholder = uid;
+    if (hint) hint.textContent = 'Gebruik dezelfde code op je andere devices.';
+    const btnCopy = document.getElementById('btnCopyCode');
+    btnCopy?.addEventListener('click', ()=>{ try{ navigator.clipboard.writeText(getUID()); alert('Code gekopieerd.'); }catch{} });
+    const btnSet = document.getElementById('btnSetCode');
+    btnSet?.addEventListener('click', async ()=>{
+      const val = (codeEl?.value||'').trim(); if (!val){ alert('Plak eerst je code.'); return; }
+      if (!setUID(val)) return;
+      await syncNowFull();
+      alert('Sync-code ingesteld en gegevens gesynchroniseerd.');
+    });
+    const btnNow = document.getElementById('btnSyncNow');
+    const btnLegacy = document.getElementById('btnSync');
+    btnNow?.addEventListener('click', syncNowFull);
+    btnLegacy?.addEventListener('click', syncNowFull);
+    // Also auto-pull when tab becomes visible
+    document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) syncNowFull(); });
+    // And periodic light sync (every 45s)
+    setInterval(syncNowFull, 45000);
+  }catch(e){}
 })();
 </script>
 </body>
