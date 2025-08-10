@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LinguaLab — Voortgang</title>
+  <meta name="theme-color" content="#0b1021">
+  <link rel="stylesheet" href="./ll-brazil-ipad-v2.css">
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{--bg:#0c0e10;--panel:rgba(255,255,255,.08);--panel2:rgba(255,255,255,.12);--text:#e8ecf1;--muted:#a8b0ba;--hair:1px solid rgba(255,255,255,.14)}
+    @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:rgba(255,255,255,.65);--panel2:rgba(255,255,255,.8);--text:#0b1520;--muted:#536070;--hair:1px solid rgba(0,0,0,.08)}}
+    .wrap{max-width:920px;margin:0 auto;padding:16px}
+    .panel{background:var(--panel);border:var(--hair);border-radius:16px;padding:14px;backdrop-filter:blur(18px) saturate(130%);box-shadow:0 10px 30px rgba(0,0,0,.25);margin-top:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .pill{display:inline-flex;align-items:center;border:var(--hair);background:var(--panel2);padding:4px 10px;border-radius:999px;margin:2px}
+    .small{font-size:12px;color:var(--muted)}
+    canvas{width:100%; height:200px; background:rgba(255,255,255,.06); border-radius:12px}
+  </style>
+</head>
+<body>
+<div id="ll-header"></div>
+<script src="./ll-nav.js" defer></script>
+  <main class="wrap">
+    <h2>Voortgang</h2>
+    <section class="panel">
+      <div id="nums" class="row"></div>
+    </section>
+    <section class="panel">
+      <h3>Due-curve (simpele schatting)</h3>
+      <canvas id="chart" width="700" height="220"></canvas>
+      <div class="small">Indicatief: op basis van intervallen in je deck.</div>
+    </section>
+    <section class="panel">
+      <a class="pill" href="today.html">⬅︎ Vandaag</a>
+      <a class="pill" href="train.html">Oefenmodus</a>
+      <a class="pill" href="index.html">Vertalen</a>
+    </section>
+  </main>
+<script src="./srs2.js"></script>
+<script>
+/* === optionele pull om overal dezelfde stand te tonen === */
+const SYNC_BASE = 'https://lingualab-sync.8p8kxkrcnj.workers.dev';
+function getUID(){
+  let id = localStorage.getItem('ll_uid');
+  if (!id) { id = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('ll_uid', id); }
+  return id;
+}
+async function syncLoad(key){
+  try{
+    const res = await fetch(`${SYNC_BASE}/get?uid=${encodeURIComponent(getUID())}&key=${encodeURIComponent(key)}`);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j?.value ?? null;
+  }catch{ return null; }
+}
+const SRS_KEY = (() => {
+  for (let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if (/^ll_srs_/i.test(k)) return k;
+  }
+  return 'll_srs_v1';
+})();
+
+async function load(){
+  try{
+    const remoteDeck = await syncLoad(SRS_KEY);
+    if (remoteDeck) localStorage.setItem(SRS_KEY, remoteDeck);
+  }catch{}
+
+  const total = await LL_SRS.count();
+  const due = (await LL_SRS.due(10000)).length;
+  document.getElementById('nums').innerHTML = `<span class="pill">📚 Totaal: ${total}</span><span class="pill">⏰ Due: ${due}</span>`;
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  ctx.clearRect(0,0,700,220);
+  ctx.beginPath();
+  ctx.moveTo(0,200);
+  const base = Math.min(200, 20 + due);
+  for (let x=0; x<700; x+=20){ ctx.lineTo(x, 200 - base); }
+  ctx.stroke();
+}
+load();
+</script>
+</body>
+</html>
