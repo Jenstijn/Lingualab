@@ -8,6 +8,7 @@ const ASSETS = [
   './progress.html',
   './train.html',
   './camera.html',
+   './settings.html',        // ← nieuw
   './srs2.js',
   './manifest.webmanifest',
   './sw.js',
