@@ -70,6 +70,16 @@
     });
   }
 
+  function allCards(db){
+    return new Promise((resolve,reject)=>{
+      try{
+        const r = tx(db, STORE).getAll();
+        r.onsuccess = ()=> resolve(r.result || []);
+        r.onerror = ()=> reject(r.error);
+      }catch(e){ reject(e); }
+    });
+  }
+
   function makeId(front, src, dst){
     try { return ('id_'+btoa(unescape(encodeURIComponent((front||'').slice(0,160)+src+dst)))).replace(/=+$/,''); }
     catch{ return 'id_'+Math.random().toString(36).slice(2); }
@@ -156,6 +166,7 @@
     async update(card){ const db = await openDB(); await set(db, STORE, card); return {ok:true}; },
     async remove(id){ const db = await openDB(); await del(db, STORE, id); return {ok:true}; },
     async migrate(){ const db = await openDB(); return await migrateFromLocalStorage(db); },
+    async listAll(){ const db = await openDB(); return await allCards(db); },
     util: { normalize, dist }
   };
 
