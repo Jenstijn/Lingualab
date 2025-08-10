@@ -90,26 +90,17 @@
           <button class="btn" id="btnSaveFav">⭐ Bewaar</button>
           <button class="btn" id="btnSaveCard">📚 Oefenen</button>
         </div>
+        
         <div class="row" style="margin-top:6px">
           <button class="btn" id="btnViewFavs" aria-haspopup="dialog">⭐ Bekijk favorieten</button>
           <button class="btn" id="btnViewCards" aria-haspopup="dialog">📚 Bekijk kaarten</button>
         </div>
-        <div id="analysis" class="tags" style="margin-top:10px;"></div>
+<div id="analysis" class="tags" style="margin-top:10px;"></div>
         <div id="notes" class="small" style="margin-top:8px;"></div>
       </section>
     </div>
     <div id="installTip" class="badge" style="margin-top:12px; display:none;">👉 Tip: zet op je beginscherm via “Deel” → “Zet op beginscherm”.</div>
-  
-  <!-- Modal: lists for Favorieten and Kaarten -->
-  <div class="backdrop" id="listBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.28);backdrop-filter:blur(2px)"></div>
-  <div class="sheet" id="listSheet" role="dialog" aria-modal="true" aria-labelledby="listTitle" style="display:none;position:fixed;inset:auto 0 0 0;max-height:70vh;overflow:auto;background:var(--bg);border:var(--hairline);border-radius:16px 16px 0 0;box-shadow:var(--shadow)">
-    <div style="position:sticky;top:0;background:inherit;border-bottom:var(--hair);padding:10px 12px;display:flex;align-items:center;gap:8px">
-      <h3 id="listTitle" style="margin:0;flex:1 0 auto">Lijsten</h3>
-      <button class="btn" id="listClose" aria-label="Sluiten">✕</button>
-    </div>
-    <div id="listContent" style="padding:12px"></div>
-  </div>
-</main>
+  </main>
 
   <!-- Popup for grammar items -->
   <div class="backdrop" id="popBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.28);backdrop-filter:blur(2px)"></div>
@@ -276,7 +267,7 @@
         const url = provider.base + '/get?q=' + encodeURIComponent(q) + '&langpair=' + source + '|' + dst;
         const r = await fetch(url); const j = await r.json();
         if ((j && j.responseStatus) !== 200) throw new Error('MyMemory ' + ((j && j.responseStatus)||'err'));
-        return ((j && j.responseData && j.responseData.translatedText) ? j.responseData.translatedText : '');
+        return (j && j.responseData && j.responseData.translatedText) || '';
       }
     }
     async function translateWithChain(q, src, dst){
@@ -433,7 +424,7 @@
         statusEl.textContent = 'Klaar.';
       } catch (err) {
         statusEl.textContent = 'Kon niet vertalen.';
-        outputEl.textContent = 'Fout: ' + ((err && err.message) || 'onbekend');
+        outputEl.textContent = 'Fout: ' + (err?.message || 'onbekend');
       }
     });
 
@@ -471,7 +462,7 @@
     document.getElementById('btnSaveCard').addEventListener('click', async ()=>{
       const txt = outputEl.dataset.last || ''; if (!txt) { alert('Nog geen vertaling.'); return; }
       const meta = JSON.parse(outputEl.dataset.meta || '{}');
-      const res = await LL_SRS.add(meta.input||'', txt, meta.src||'auto', meta.dst||'pt', ['manual']);
+      let res = {ok:false}; try{ if (window.LL_SRS && LL_SRS.add) res = await LL_SRS.add(meta.input||'', txt, meta.src||'auto', meta.dst||'pt', ['manual']); }catch(e){}
       if (res.ok){
         statusEl.textContent = '📚 Toegevoegd aan SRS.';
         // sync volledige deck
@@ -480,6 +471,9 @@
         statusEl.textContent = 'Kaart bestond al.';
       }
     });
+
+    document.getElementById('btnViewFavs').addEventListener('click', function(){ alert('Favorieten bekijk je voorlopig via Vandaag.'); });
+    document.getElementById('btnViewCards').addEventListener('click', function(){ location.href='./today.html'; });
 
     // Install tip
     function maybeShowInstallTip(){
@@ -498,139 +492,11 @@
         const remoteDeck = await syncLoad(SRS_KEY);
         if (remoteDeck) localStorage.setItem(SRS_KEY, remoteDeck);
       }catch{}
-      try{ await LL_SRS.migrate(); }catch{}
+      try{ if (window.LL_SRS && LL_SRS.migrate) await LL_SRS.migrate(); }catch(e){}
     })();
 
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
-  
-    // === Favorieten & Kaarten viewer ===
-    (function(){
-      const listBg = document.getElementById('listBg');
-      const listSheet = document.getElementById('listSheet');
-      const listTitle = document.getElementById('listTitle');
-      const listContent = document.getElementById('listContent');
-      const statusEl = document.getElementById('status');
-      function openSheet(title, html){
-        listTitle.textContent = title;
-        listContent.innerHTML = html || '<div class="small">Niets om te tonen.</div>';
-        listBg.style.display = 'block';
-        listSheet.style.display = 'block';
-        listSheet.focus();
-      }
-      function closeSheet(){
-        listBg.style.display = 'none';
-        listSheet.style.display = 'none';
-      }
-      document.getElementById('listClose').addEventListener('click', closeSheet);
-      listBg.addEventListener('click', closeSheet);
-      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeSheet(); });
-
-      function fmtDate(ts){
-        try{ const d = new Date(ts); return d.toLocaleString(); }catch{ return ''; }
-      }
-      function esc(s){ return (s||'').toString().replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[m])); }
-
-      function renderFavs(){
-        const favs = getFavs();
-        if (!favs.length) { openSheet('Favorieten', '<div class="small">Nog geen favorieten.</div>'); return; }
-        const rows = favs.map((f,i)=>{
-          const lang = (f.src||'') + ' → ' + (f.dst||'');
-          return \`
-            <div class="pair" style="border:var(--hair);border-radius:12px;padding:10px;margin:6px 0;background:var(--panel-strong)">
-              <div class="small">\${fmtDate(f.ts)} · \${esc(lang)}</div>
-              <div class="mono" style="margin-top:6px"><strong>NL:</strong> \${esc(f.input||f.inp||'')}</div>
-              <div class="mono" style="margin-top:4px"><strong>→:</strong> \${esc(f.out||'')}</div>
-              <div class="row" style="margin-top:6px">
-                <button class="btn small" data-act="copy" data-idx="\${i}">Kopieer</button>
-                <button class="btn small" data-act="toSrs" data-idx="\${i}">Voeg toe aan SRS</button>
-                <button class="btn small" data-act="delFav" data-idx="\${i}">Verwijder</button>
-              </div>
-            </div>\`;
-        }).join('');
-        openSheet('Favorieten', rows);
-        // event delegation
-        listContent.querySelectorAll('button[data-act]').forEach(btn=>{
-          btn.addEventListener('click', async (e)=>{
-            const act = btn.dataset.act; const idx = +btn.dataset.idx;
-            const favs2 = getFavs();
-            const f = favs2[idx];
-            if (!f) return;
-            if (act==='copy'){
-              try{ await navigator.clipboard.writeText(f.out||''); statusEl.textContent = 'Gekopieerd.'; }catch{}
-            } else if (act==='toSrs'){
-              const res = await LL_SRS.add(f.input||f.inp||'', f.out||'', f.src||'auto', f.dst||'pt', ['from:fav']);
-              if (res.ok){
-                statusEl.textContent = 'Aan SRS toegevoegd.';
-                setSrsDeck(getSrsDeck()); // trigger sync
-              } else {
-                statusEl.textContent = 'Bestond al in SRS.';
-              }
-            } else if (act==='delFav'){
-              favs2.splice(idx,1); setFavs(favs2);
-              renderFavs();
-            }
-          });
-        });
-      }
-
-      
-      async function renderCards(){
-        let deck = [];
-        try{
-          if (window.LL_SRS && typeof LL_SRS.listAll === 'function'){
-            deck = await LL_SRS.listAll();
-          } else {
-            deck = getSrsDeck();
-          }
-        }catch{ deck = []; }
-        if (!Array.isArray(deck) || deck.length===0){
-          openSheet('Kaarten', '<div class="small">Nog geen kaarten. Voeg via “📚 Oefenen” toe.</div>');
-          return;
-        }
-        const rows = deck.map((c,i)=>{
-          const due = c.due ? fmtDate(c.due) : '';
-          const tags = Array.isArray(c.tags) && c.tags.length ? (' · ' + c.tags.join(',')) : '';
-          return `
-            <div class="pair" style="border:var(--hair);border-radius:12px;padding:10px;margin:6px 0;background:var(--panel-strong)">
-              <div class="small">${due ? ('Verval: '+due+' · ') : ''}${esc((c.src||'')+' → '+(c.dst||''))}${tags}</div>
-              <div class="mono" style="margin-top:6px"><strong>Voor:</strong> ${esc(c.front||'')}</div>
-              <div class="mono" style="margin-top:4px"><strong>Achter:</strong> ${esc(c.back||'')}</div>
-              <div class="row" style="margin-top:6px">
-                <button class="btn small" data-act="copyBack" data-id="${esc(c.id||'')}">Kopieer</button>
-                <button class="btn small" data-act="delCard" data-id="${esc(c.id||'')}" data-idx="${i}">Verwijder</button>
-              </div>
-            </div>`;
-        }).join('');
-        openSheet('Kaarten', rows);
-
-        listContent.querySelectorAll('button[data-act]').forEach(btn=>{
-          btn.addEventListener('click', async ()=>{
-            const act = btn.dataset.act;
-            const id = btn.dataset.id;
-            if (act==='copyBack'){
-              try{
-                const card = (deck.find(d=>d.id===id) || {});
-                await navigator.clipboard.writeText(card.back||''); statusEl.textContent = 'Gekopieerd.';
-              }catch{}
-            } else if (act==='delCard'){
-              try{ await LL_SRS.remove(id); }catch{}
-              try{
-                const idx = +btn.dataset.idx;
-                if (!Number.isNaN(idx)) { deck.splice(idx,1); setSrsDeck(deck); }
-              }catch{}
-              renderCards();
-            }
-          });
-        });
-      }
-
-      const btnFavs = document.getElementById('btnViewFavs');
-      const btnCards = document.getElementById('btnViewCards');
-      if (btnFavs) btnFavs.addEventListener('click', renderFavs);
-      if (btnCards) btnCards.addEventListener('click', renderCards);
-    })();
-</script>
-
-
+  try{ document.getElementById('status').textContent='Klaar voor input — scripts geladen ✓'; }catch(e){}
+  </script>
 </body>
 </html>
