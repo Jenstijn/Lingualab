@@ -1,5 +1,5 @@
 //sw.js
-const CACHE_NAME = 'lingualab-cache-v36';
+const CACHE_NAME = 'lingualab-cache-v37';
 
 const ASSETS = [
   './',
@@ -19,40 +19,34 @@ const ASSETS = [
   './ll-header.html',
   './ll-nav.js',
   './ll-brazil-ipad-v2.css',
+  './assets/logo-lingualab.jpeg', // ← nieuw: logo
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-    ))
+    caches.keys().then((keys) => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  // Network-first voor HTML, cache-first voor overige assets
   if (req.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(req).then((res) => {
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, resClone));
+        caches.open(CACHE_NAME).then((c) => c.put(req, res.clone()));
         return res;
       }).catch(() => caches.match(req))
     );
   } else {
     event.respondWith(
       caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, resClone));
+        caches.open(CACHE_NAME).then((c) => c.put(req, res.clone()));
         return res;
       }))
     );
