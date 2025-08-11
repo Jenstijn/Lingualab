@@ -1,5 +1,5 @@
 //sw.js
-const CACHE_NAME = 'lingualab-cache-v38';
+const CACHE_NAME = 'lingualab-cache-v39';
 
 const ASSETS = [
   './',
