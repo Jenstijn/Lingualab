@@ -1,4 +1,5 @@
-// ll-nav.js — load shared header and highlight current page
+//ll-nav.js
+// ll-nav.js — load shared header en highlight huidige pagina
 (function(){
   async function load(){
     try{
@@ -9,12 +10,14 @@
       const html = await res.text();
       cont.innerHTML = html;
 
-      // Active state based on path
+      // Active state op basis van path
       const p = location.pathname.toLowerCase();
-      const key = p.includes('today') ? 'today'
+      const key = p.includes('translate') ? 'translate'
+                : p.includes('today') ? 'today'
                 : p.includes('progress') ? 'progress'
                 : p.includes('camera') ? 'camera'
-                : 'index';
+                : p.includes('settings') ? 'settings'
+                : 'index'; // landing
       const a = cont.querySelector(`a[data-key="${key}"]`);
       if (a){ a.classList.add('active'); a.setAttribute('aria-current','page'); }
     }catch(e){ /* no-op */ }
