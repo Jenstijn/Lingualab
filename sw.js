@@ -1,22 +1,23 @@
-
-const CACHE_NAME = 'lingualab-cache-v35';
+//sw.js
+const CACHE_NAME = 'lingualab-cache-v36';
 
 const ASSETS = [
   './',
   './index.html',
+  './translate.html',
   './today.html',
   './progress.html',
   './train.html',
   './camera.html',
-   './settings.html',        // ← nieuw
+  './settings.html',
   './srs2.js',
   './manifest.webmanifest',
   './sw.js',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
   './ll-typography.css',
   './ll-header.html',
-'./ll-nav.js',
+  './ll-nav.js',
   './ll-brazil-ipad-v2.css',
 ];
 
@@ -38,7 +39,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  // Network-first for HTML, cache-first for others
+  // Network-first voor HTML, cache-first voor overige assets
   if (req.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(req).then((res) => {
