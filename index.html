@@ -13,11 +13,17 @@
   <link rel="stylesheet" href="./ll-typography.css">
   <style>
     .hero{display:grid;place-items:center;min-height:60vh;text-align:center;padding:32px}
-    .hero h1{font-size:32px;margin-bottom:8px}
-    .hero p{color:var(--muted);max-width:48ch;margin:8px auto 20px}
+    .hero .logo{width:min(520px,82vw);max-width:520px;aspect-ratio:16/5;display:grid;place-items:center;margin:0 auto 12px}
+    .hero .logo img{width:100%;height:auto;filter:drop-shadow(0 12px 28px rgba(0,0,0,.25))}
+    .hero h1{font-size:32px;margin:6px 0 6px}
+    .hero p{color:var(--muted);max-width:62ch;margin:8px auto 18px}
     .cta{display:inline-flex;gap:10px;flex-wrap:wrap;justify-content:center}
-    .logo{width:82px;height:82px;border-radius:999px;display:grid;place-items:center;margin:0 auto 10px;background:var(--surface)}
-    .panel{max-width:720px;margin:20px auto;padding:18px}
+    .panel{max-width:960px;margin:20px auto;padding:18px}
+    .features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+    @media (max-width:900px){ .features{grid-template-columns:1fr} .hero h1{font-size:28px} }
+    .feature{background:var(--surface);border:var(--hair);border-radius:var(--radius);backdrop-filter:var(--backdrop);padding:14px;text-align:left}
+    .feature h3{margin-bottom:6px}
+    .sub{font-size:.92rem;color:var(--muted)}
   </style>
 </head>
 <body>
@@ -26,21 +32,42 @@
 
   <main class="wrap">
     <section class="hero panel">
-      <div class="logo"><img src="./icon-192.png" alt="LinguaLab" width="56" height="56" loading="lazy"></div>
-      <h1>Welkom bij LinguaLab</h1>
-      <p>Snelle vertalingen, slimme zinsanalyse en een ingebouwde SRS 2.0 om te oefenen — volledig client‑side en PWA‑ready.</p>
+      <!-- Logo -->
+      <figure class="logo" aria-label="LinguaLab">
+        <img src="./assets/logo-lingualab.jpeg" alt="LinguaLab logo">
+      </figure>
+
+      <!-- Creatieve intro -->
+      <h1>Leer slimmer. Vertaal sneller. Oefen dagelijks.</h1>
+      <p>
+        LinguaLab is je lichte, privacy‑vriendelijke taalstudio. Typ of dicteer een zin, 
+        krijg direct een vertaling mét zinsanalyse, sla voorbeelden op als kaartje en 
+        oefen ze daarna met een SRS‑deck — volledig lokaal, werkt ook offline.
+      </p>
       <div class="cta">
         <a class="btn" href="./translate.html">🗣️ Open de vertaaltool</a>
         <a class="btn" href="./today.html">📚 Naar oefenen (SRS)</a>
       </div>
+      <div class="sub" style="margin-top:10px">Tip: voeg toe aan je beginscherm voor de beste PWA‑ervaring.</div>
     </section>
+
+    <!-- Korte ‘waarom LinguaLab’ sectie -->
     <section class="panel">
-      <h2>Kort</h2>
-      <ul>
-        <li>Werkt offline nadat je het een keer geopend hebt.</li>
-        <li>Privacy‑vriendelijk: alles draait lokaal in je browser.</li>
-        <li>Braziliaans‑Portugees met informele (Carioca) variant.</li>
-      </ul>
+      <h2>Waarom LinguaLab?</h2>
+      <div class="features">
+        <article class="feature">
+          <h3>⚡ Snelle vertalingen</h3>
+          <p class="sub">Fallback‑keten van meerdere vertaalproviders. Altijd een poging, zelfs met haperend internet.</p>
+        </article>
+        <article class="feature">
+          <h3>🧠 Slimme analyse</h3>
+          <p class="sub">Markeert onderwerp, werkwoorden, bijzinnen en voorzetsels. Klik voor uitleg en voorbeelden.</p>
+        </article>
+        <article class="feature">
+          <h3>📈 Oefenen dat blijft hangen</h3>
+          <p class="sub">Bewaar zinnen als kaarten en herhaal met een SRS‑schema. Alles client‑side, geen accounts.</p>
+        </article>
+      </div>
     </section>
   </main>
 
