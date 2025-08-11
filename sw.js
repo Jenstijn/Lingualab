@@ -1,5 +1,5 @@
 //sw.js
-const CACHE_NAME = 'lingualab-cache-v37';
+const CACHE_NAME = 'lingualab-cache-v38';
 
 const ASSETS = [
   './',
@@ -19,7 +19,13 @@ const ASSETS = [
   './ll-header.html',
   './ll-nav.js',
   './ll-brazil-ipad-v2.css',
-  './assets/logo-lingualab.jpeg', // ← nieuw: logo
+
+  // Logo-varianten (case/format-agnostisch)
+  './assets/logo-lingualab.png',
+  './assets/logo-lingualab.PNG',
+  './assets/logo-lingualab.webp',
+  './assets/logo-lingualab.jpeg',
+  './assets/logo-lingualab.jpg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -36,6 +42,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+  // Network-first voor HTML, cache-first voor overige assets
   if (req.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(req).then((res) => {
