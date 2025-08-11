@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="./ll-typography.css">
   <style>
     .hero{display:grid;place-items:center;min-height:60vh;text-align:center;padding:32px}
-    .hero .logo{width:min(520px,82vw);max-width:520px;aspect-ratio:16/5;display:grid;place-items:center;margin:0 auto 12px}
+    .hero .logo{width:min(520px,82vw);max-width:520px;display:grid;place-items:center;margin:0 auto 12px}
     .hero .logo img{width:100%;height:auto;filter:drop-shadow(0 12px 28px rgba(0,0,0,.25))}
     .hero h1{font-size:32px;margin:6px 0 6px}
     .hero p{color:var(--muted);max-width:62ch;margin:8px auto 18px}
@@ -32,12 +32,11 @@
 
   <main class="wrap">
     <section class="hero panel">
-      <!-- Logo -->
+      <!-- Logo met robuuste loader -->
       <figure class="logo" aria-label="LinguaLab">
-        <img src="./assets/logo-lingualab.jpeg" alt="LinguaLab logo">
+        <img id="ll-logo" alt="LinguaLab logo" width="520" height="160" decoding="async" />
       </figure>
 
-      <!-- Creatieve intro -->
       <h1>Leer slimmer. Vertaal sneller. Oefen dagelijks.</h1>
       <p>
         LinguaLab is je lichte, privacy‑vriendelijke taalstudio. Typ of dicteer een zin, 
@@ -51,7 +50,6 @@
       <div class="sub" style="margin-top:10px">Tip: voeg toe aan je beginscherm voor de beste PWA‑ervaring.</div>
     </section>
 
-    <!-- Korte ‘waarom LinguaLab’ sectie -->
     <section class="panel">
       <h2>Waarom LinguaLab?</h2>
       <div class="features">
@@ -72,6 +70,29 @@
   </main>
 
   <script>
+    // Probeert meerdere bestandsvarianten in volgorde
+    (function loadLogo(){
+      const img = document.getElementById('ll-logo');
+      const candidates = [
+        './assets/logo-lingualab.png',
+        './assets/logo-lingualab.PNG',
+        './assets/logo-lingualab.webp',
+        './assets/logo-lingualab.jpeg',
+        './assets/logo-lingualab.jpg'
+      ];
+      let i = 0;
+      const tryNext = () => {
+        if (i >= candidates.length) { img.alt = 'LinguaLab'; return; }
+        const url = candidates[i++];
+        // HEAD hitst ook de PWA-cache; zo voorkomen we broken imgs
+        fetch(url, { method:'HEAD' }).then(r => {
+          if (r.ok) { img.src = url; }
+          else { tryNext(); }
+        }).catch(tryNext);
+      };
+      tryNext();
+    })();
+
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
   </script>
 </body>
